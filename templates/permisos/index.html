@@ -1,0 +1,54 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h2><i class="fa-solid fa-users"></i> Usuarios <small style="color:var(--text-secondary);font-size:0.7rem;font-weight:400;">›</small> <span style="color:var(--accent);"><i class="fa-solid fa-key"></i> Permisos</span></h2>
+    </div>
+    
+    <form action="{{ url_for('permisos.guardar') }}" method="POST">
+        <div class="table-responsive">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Módulo</th>
+                        <th>Acción / Permiso</th>
+                        {% for r in roles %}
+                        <th style="text-align:center;">{{ r[1] }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for modulo, lista_permisos in permisos_por_modulo.items() %}
+                        <tr>
+                            <td rowspan="{{ lista_permisos|length + 1 }}" style="font-weight:bold; vertical-align:top; border-right:1px solid var(--border);">{{ modulo }}</td>
+                        </tr>
+                        {% for p in lista_permisos %}
+                        <tr>
+                            <td>{{ p[2] }} <br><small style="color:var(--text-secondary);">{{ p[3] }}</small></td>
+                            {% for r in roles %}
+                            <td style="text-align:center;">
+                                <input type="checkbox" name="permiso_{{ r[0] }}_{{ p[0] }}" 
+                                       style="width: 18px; height: 18px; cursor:pointer;"
+                                       {% if r[0] in asignaciones and p[0] in asignaciones[r[0]] %}checked{% endif %}>
+                            </td>
+                            {% endfor %}
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="{{ roles|length + 2 }}" style="text-align:center;">No hay permisos registrados en el catálogo.</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        {% if 'permisos.editar' in session.get('permisos', []) %}
+        <div style="margin-top:20px; text-align:right;">
+            <button type="submit" class="btn-primary" style="width:auto; padding:10px 30px;"><i class="fa-solid fa-save"></i> Guardar Cambios en la Matriz</button>
+        </div>
+        {% endif %}
+    </form>
+</div>
+{% endblock %}

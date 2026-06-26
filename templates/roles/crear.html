@@ -1,0 +1,18 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="card" style="max-width: 600px; margin: 0 auto;">
+    <div class="card-header">
+        <h2><i class="fa-solid fa-users"></i> Usuarios <small style="color:var(--text-secondary);font-size:0.7rem;font-weight:400;">›</small> <span style="color:var(--accent);"><i class="fa-solid fa-shield-halved"></i> Nuevo Rol</span></h2>
+        <a href="{{ url_for('roles.index') }}" class="btn-logout" style="width:auto; display:inline-block; text-decoration:none; padding:5px 15px; border-color:var(--text-secondary); color:var(--text-secondary);">Cancelar</a>
+    </div>
+    
+    <form action="{{ url_for('roles.crear') }}" method="POST">
+        <div class="form-group">
+            <label for="rol">Nombre del Rol</label>
+            <input type="text" id="rol" name="rol" class="form-control" required autocomplete="off" placeholder="Ej: Vendedor">
+        </div>
+        <button type="submit" class="btn-primary" style="margin-top: 20px;">Guardar Rol</button>
+    </form>
+</div>
+{% endblock %}

@@ -1,0 +1,21 @@
+# ── Entorno virtual ──
+venv/
+
+# ── Python cache ──
+__pycache__/
+*.pyc
+*.pyo
+
+# ── Archivos de prueba ──
+test_*.py
+
+# ── Config local (contiene ruta de BD) ──
+config.json
+
+# ── IDE ──
+.vscode/
+.idea/
+
+# ── OS ──
+Thumbs.db
+.DS_Store

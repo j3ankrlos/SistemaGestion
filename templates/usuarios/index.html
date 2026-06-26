@@ -1,0 +1,790 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h2><i class="fa-solid fa-users"></i> Gesti&oacute;n de Usuarios</h2>
+        {% if 'usuarios.crear' in session.get('permisos', []) %}
+        <button class="btn-primary" id="btnNuevoUsuario" style="width:auto; padding:10px 20px; display:inline-flex; align-items:center; gap:8px;">
+            <i class="fa-solid fa-plus"></i> Nuevo Usuario
+        </button>
+        {% endif %}
+    </div>
+
+    <!-- Buscador inteligente -->
+    <div class="search-bar">
+        <i class="fa-solid fa-search search-icon"></i>
+        <input type="text" id="searchInput" class="form-control" placeholder="Buscar por usuario, nombre o rol..." autocomplete="off">
+        <button class="btn-search-clear" id="searchClear" title="Limpiar b&uacute;squeda"><i class="fa-solid fa-times"></i></button>
+    </div>
+
+    <!-- Tabla de usuarios -->
+    <div class="table-responsive">
+        <table class="table-hover" id="usuariosTable">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Usuario</th>
+                    <th>Nombre Corto</th>
+                    <th>Rol</th>
+                    <th>Estado</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody id="usuariosTableBody">
+                <!-- Se carga vía AJAX -->
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Paginador -->
+    <div class="pagination-container" id="paginationContainer">
+        <!-- Se genera vía JS -->
+    </div>
+</div>
+
+<!-- ========== MODAL CREAR / EDITAR USUARIO ========== -->
+<div class="modal-overlay" id="usuarioModal">
+    <div class="modal-content modal-md">
+        <div class="modal-header">
+            <h3 id="modalTitle"><i class="fa-solid fa-user-plus"></i> <span>Nuevo Usuario</span></h3>
+            <button class="modal-close" id="modalClose">&times;</button>
+        </div>
+        <form id="usuarioForm" autocomplete="off">
+            <input type="hidden" id="editId" value="">
+
+            <!-- ═══ SECCIÓN 1: INFORMACIÓN DEL USUARIO ═══ -->
+            <div class="form-section">
+                <div class="form-section-title"><i class="fa-solid fa-user"></i> INFORMACIÓN DEL USUARIO</div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="nombreCorto">Nombre Corto</label>
+                        <input type="text" id="nombreCorto" class="form-control" required placeholder="Ej: Juan Pérez">
+                    </div>
+                    <div class="form-group">
+                        <label for="idRol">Rol del Sistema</label>
+                        <select id="idRol" class="form-control" required>
+                            <option value="">-- Seleccione --</option>
+                            {% for r in roles %}
+                            <option value="{{ r[0] }}">{{ r[1] }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Usuario (login) -->
+                <div class="form-group">
+                    <label for="usuarioInput">Usuario (Login)</label>
+                    <div class="usuario-input-wrapper">
+                        <input type="text" id="usuarioInput" class="form-control" required placeholder="Nombre de usuario para acceder">
+                        <span class="usuario-status" id="usuarioStatus"></span>
+                    </div>
+                    <div class="usuario-sugerencias" id="usuarioSugerencias" style="display:none;">
+                        <small style="color:var(--text-secondary);">Sugerencias:</small>
+                        <div class="sugerencias-list" id="sugerenciasList"></div>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="claveInput">Contrase&ntilde;a <small id="claveLabel" style="color:var(--text-secondary);">(m&iacute;n. 4 caracteres)</small></label>
+                        <input type="password" id="claveInput" class="form-control" minlength="4" placeholder="••••••••">
+                    </div>
+                    <div class="form-group">
+                        <label for="claveConfirm">Confirmar Contrase&ntilde;a</label>
+                        <input type="password" id="claveConfirm" class="form-control" placeholder="••••••••">
+                    </div>
+                </div>
+            </div>
+
+            <!-- ═══ SECCIÓN 2: ASOCIACIÓN OPCIONAL A PERSONAL ═══ -->
+            <div class="form-section">
+                <div class="form-section-title"><i class="fa-solid fa-address-book"></i> ASOCIAR A PERSONAL <span style="color:var(--text-secondary);font-weight:400;text-transform:none;font-size:0.7rem;letter-spacing:0;">(opcional)</span></div>
+
+                <div class="form-group">
+                    <label>Buscar persona en la base de datos de Personal</label>
+                    <div class="personal-search-wrapper">
+                        <input type="text" id="personalSearch" class="form-control" placeholder="Buscar por nombre o apellido...">
+                        <div class="personal-results" id="personalResults"></div>
+                    </div>
+                    <input type="hidden" id="idPersonal" value="">
+                    <div class="personal-selected" id="personalSelected" style="display:none;">
+                        <span id="personalName"></span>
+                        <button type="button" id="clearPersonal" title="Desvincular personal">&times;</button>
+                    </div>
+                    <small style="color:var(--text-secondary);display:block;margin-top:6px;">
+                        <i class="fa-solid fa-info-circle"></i> Si no seleccionas personal, el usuario se creará sin asociación.
+                    </small>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn-secondary" id="modalCancel">Cancelar</button>
+                <button type="submit" class="btn-primary" id="modalSubmit" style="width:auto; padding:12px 30px;">
+                    <i class="fa-solid fa-save"></i> <span>Guardar Usuario</span>
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ─── Config ───
+window.__roles = [
+    {% for r in roles %}
+    { id: {{ r[0] }}, nombre: '{{ r[1]|e }}' },
+    {% endfor %}
+];
+window.__permisos = {{ session.get('permisos', []) | tojson | safe }};
+
+(function() {
+    'use strict';
+
+    // ─── Estado ───
+    var state = {
+        page: 1,
+        search: '',
+        totalPages: 1,
+        editingId: null,  // null = crear, number = editando
+    };
+
+    // ─── Toast helper ───
+    function showToast(icon, title) {
+        Swal.fire({
+            toast: true,
+            position: 'top-end',
+            icon: icon,
+            title: title,
+            showConfirmButton: false,
+            timer: 3000,
+            timerProgressBar: true,
+            background: '#1e1e24',
+            color: '#e0e0e0',
+        });
+    }
+
+    // ─── Cargar tabla ───
+    function loadTable() {
+        var tbody = document.getElementById('usuariosTableBody');
+        tbody.innerHTML = '<tr><td colspan="6" class="table-loading"><div class="spinner"></div></td></tr>';
+
+        fetch('/usuarios/data?page=' + state.page + '&search=' + encodeURIComponent(state.search))
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                renderTable(data);
+                renderPagination(data);
+            })
+            .catch(function(err) {
+                tbody.innerHTML = '<tr><td colspan="6" class="table-empty"><i class="fa-solid fa-exclamation-triangle"></i><p>Error al cargar datos</p></td></tr>';
+                console.error(err);
+            });
+    }
+
+    function renderTable(data) {
+        var tbody = document.getElementById('usuariosTableBody');
+        var usuarios = data.usuarios;
+
+        if (!usuarios || usuarios.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" class="table-empty"><i class="fa-solid fa-users"></i><p>No se encontraron usuarios</p></td></tr>';
+            return;
+        }
+
+        var html = '';
+        usuarios.forEach(function(u) {
+            var esActivo = u.status === 1;
+            var badgeClass = esActivo ? 'active' : 'inactive';
+            var statusText = esActivo ? 'Activo' : 'Inactivo';
+
+            // Botones de acción según permisos
+            var acciones = '<div class="action-btns">';
+
+            if (window.__permisos.indexOf('usuarios.editar') !== -1) {
+                acciones += '<button class="btn-action edit" onclick="window.__editUsuario(' + u.id + ')" title="Editar usuario"><i class="fa-solid fa-pen"></i> Editar</button>';
+            }
+
+            if (window.__permisos.indexOf('usuarios.desactivar') !== -1) {
+                if (esActivo) {
+                    acciones += '<button class="btn-action deactivate" onclick="window.__toggleStatus(' + u.id + ', 0)" title="Desactivar usuario"><i class="fa-solid fa-ban"></i> Desactivar</button>';
+                } else {
+                    acciones += '<button class="btn-action activate" onclick="window.__toggleStatus(' + u.id + ', 1)" title="Activar usuario"><i class="fa-solid fa-check-circle"></i> Activar</button>';
+                }
+            }
+
+            acciones += '</div>';
+
+            html += '<tr>' +
+                '<td><strong>' + u.id + '</strong></td>' +
+                '<td><code style="color:var(--accent);background:rgba(108,99,255,0.08);padding:2px 8px;border-radius:4px;font-size:0.85rem;">' + escapeHtml(u.usuario) + '</code></td>' +
+                '<td>' + escapeHtml(u.nombre_corto) + '</td>' +
+                '<td><span class="status-badge" style="background:rgba(108,99,255,0.08);color:var(--accent);border:1px solid rgba(108,99,255,0.15);font-size:0.75rem;">' + escapeHtml(u.rol) + '</span></td>' +
+                '<td><span class="status-badge ' + badgeClass + '"><span class="status-dot ' + badgeClass + '"></span> ' + statusText + '</span></td>' +
+                '<td>' + acciones + '</td>' +
+                '</tr>';
+        });
+        tbody.innerHTML = html;
+    }
+
+    function escapeHtml(text) {
+        if (!text) return '';
+        var d = document.createElement('div');
+        d.textContent = text;
+        return d.innerHTML;
+    }
+
+    // ─── Paginación ───
+    function renderPagination(data) {
+        var container = document.getElementById('paginationContainer');
+        var page = data.page;
+        var totalPages = data.total_pages;
+        var total = data.total;
+        state.totalPages = totalPages;
+
+        var html = '<div class="pagination-info">Mostrando página ' + page + ' de ' + totalPages + ' (' + total + ' registros)</div>';
+
+        html += '<div class="pagination-controls">';
+
+        // Anterior
+        var prevDisabled = page <= 1 ? 'disabled' : '';
+        html += '<button class="pagination-btn ' + prevDisabled + '" onclick="window.__goPage(' + (page - 1) + ')" ' + (prevDisabled ? 'disabled' : '') + '><i class="fa-solid fa-chevron-left"></i></button>';
+
+        // Páginas
+        var startPage = Math.max(1, page - 2);
+        var endPage = Math.min(totalPages, page + 2);
+
+        if (startPage > 1) {
+            html += '<button class="pagination-btn" onclick="window.__goPage(1)">1</button>';
+            if (startPage > 2) html += '<span class="pagination-btn disabled" style="border:none;background:none;">...</span>';
+        }
+
+        for (var i = startPage; i <= endPage; i++) {
+            var active = i === page ? 'active' : '';
+            html += '<button class="pagination-btn ' + active + '" onclick="window.__goPage(' + i + ')">' + i + '</button>';
+        }
+
+        if (endPage < totalPages) {
+            if (endPage < totalPages - 1) html += '<span class="pagination-btn disabled" style="border:none;background:none;">...</span>';
+            html += '<button class="pagination-btn" onclick="window.__goPage(' + totalPages + ')">' + totalPages + '</button>';
+        }
+
+        // Siguiente
+        var nextDisabled = page >= totalPages ? 'disabled' : '';
+        html += '<button class="pagination-btn ' + nextDisabled + '" onclick="window.__goPage(' + (page + 1) + ')" ' + (nextDisabled ? 'disabled' : '') + '><i class="fa-solid fa-chevron-right"></i></button>';
+
+        html += '</div>';
+        container.innerHTML = html;
+    }
+
+    window.__goPage = function(p) {
+        if (p < 1 || p > state.totalPages) return;
+        state.page = p;
+        loadTable();
+    };
+
+    // ─── Búsqueda con debounce ───
+    var searchTimer = null;
+    document.getElementById('searchInput').addEventListener('input', function() {
+        var val = this.value.trim();
+        var clearBtn = document.getElementById('searchClear');
+        if (val.length > 0) {
+            clearBtn.style.display = 'block';
+        } else {
+            clearBtn.style.display = 'none';
+        }
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(function() {
+            state.search = val;
+            state.page = 1;
+            loadTable();
+        }, 350);
+    });
+
+    document.getElementById('searchClear').addEventListener('click', function() {
+        var input = document.getElementById('searchInput');
+        input.value = '';
+        this.style.display = 'none';
+        state.search = '';
+        state.page = 1;
+        loadTable();
+    });
+
+    // ─── Modal ───
+    var modal = document.getElementById('usuarioModal');
+    var modalTitle = document.getElementById('modalTitle').querySelector('span');
+    var form = document.getElementById('usuarioForm');
+
+    function openModal(editId) {
+        state.editingId = editId || null;
+        form.reset();
+        document.getElementById('editId').value = '';
+        document.getElementById('idPersonal').value = '';
+        document.getElementById('personalSelected').style.display = 'none';
+        document.getElementById('personalResults').classList.remove('active');
+        document.getElementById('usuarioSugerencias').style.display = 'none';
+        document.getElementById('usuarioStatus').className = 'usuario-status';
+        document.getElementById('usuarioStatus').textContent = '';
+        document.getElementById('claveInput').value = '';
+        document.getElementById('claveInput').required = true;
+        document.getElementById('claveLabel').textContent = '(mín. 4 caracteres)';
+        document.getElementById('claveConfirm').value = '';
+        document.getElementById('claveConfirm').required = true;
+        document.getElementById('modalSubmit').querySelector('span').textContent = 'Guardar Usuario';
+
+        if (editId) {
+            modalTitle.textContent = 'Editar Usuario';
+            document.getElementById('modalSubmit').querySelector('span').textContent = 'Actualizar Usuario';
+            document.getElementById('claveInput').required = false;
+            document.getElementById('claveLabel').textContent = '(dejar vacío para no cambiar)';
+            document.getElementById('claveConfirm').required = false;
+
+            // Cargar datos
+            fetch('/usuarios/' + editId + '/editar')
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    if (!data.success) {
+                        showToast('error', data.error);
+                        closeModal();
+                        return;
+                    }
+                    var u = data.usuario;
+                    document.getElementById('editId').value = u.id;
+                    document.getElementById('nombreCorto').value = u.nombre_corto || '';
+                    document.getElementById('idRol').value = u.id_rol || '';
+                    document.getElementById('usuarioInput').value = u.usuario || '';
+                    document.getElementById('usuarioInput').readOnly = true;
+                    document.getElementById('usuarioStatus').className = 'usuario-status available';
+                    document.getElementById('usuarioStatus').innerHTML = '<i class="fa-solid fa-lock" title="No se puede cambiar el nombre de usuario"></i>';
+
+                    if (u.id_personal) {
+                        document.getElementById('idPersonal').value = u.id_personal;
+                        var nombreCompleto = (u.nombres_personal || '') + ' ' + (u.apellidos_personal || '');
+                        document.getElementById('personalSearch').value = '';
+                        document.getElementById('personalSearch').placeholder = nombreCompleto.trim() || 'Buscar persona...';
+                        document.getElementById('personalSelected').style.display = 'flex';
+                        document.getElementById('personalName').innerHTML = '<i class="fa-solid fa-user"></i> ' + escapeHtml(nombreCompleto.trim());
+                    }
+                })
+                .catch(function(err) {
+                    showToast('error', 'Error al cargar datos del usuario');
+                    closeModal();
+                });
+        } else {
+            modalTitle.textContent = 'Nuevo Usuario';
+            document.getElementById('usuarioInput').readOnly = false;
+            document.getElementById('usuarioInput').value = '';
+            document.getElementById('personalSearch').value = '';
+            document.getElementById('personalSearch').placeholder = 'Buscar persona por nombre o apellido...';
+        }
+
+        modal.classList.add('active');
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeModal() {
+        modal.classList.remove('active');
+        document.body.style.overflow = '';
+        state.editingId = null;
+    }
+
+    window.__editUsuario = openModal;
+
+    // Botones del modal
+    var btnNuevo = document.getElementById('btnNuevoUsuario');
+    if (btnNuevo) {
+        btnNuevo.addEventListener('click', function() { openModal(null); });
+    }
+    document.getElementById('modalClose').addEventListener('click', closeModal);
+    document.getElementById('modalCancel').addEventListener('click', closeModal);
+    modal.addEventListener('click', function(e) {
+        if (e.target === modal) closeModal();
+    });
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && modal.classList.contains('active')) closeModal();
+    });
+
+    // ─── Búsqueda de Personal ───
+    var personalSearch = document.getElementById('personalSearch');
+    var personalResults = document.getElementById('personalResults');
+    var personalTimer = null;
+
+    personalSearch.addEventListener('input', function() {
+        var q = this.value.trim();
+        if (q.length < 1) {
+            personalResults.classList.remove('active');
+            return;
+        }
+        clearTimeout(personalTimer);
+        personalTimer = setTimeout(function() {
+            fetch('/usuarios/buscar_personal?q=' + encodeURIComponent(q))
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    if (!data || data.length === 0) {
+                        personalResults.innerHTML = '<div class="personal-result-item" style="cursor:default;color:var(--text-secondary);justify-content:center;">Sin resultados</div>';
+                        personalResults.classList.add('active');
+                        return;
+                    }
+                    var html = '';
+                    data.forEach(function(p) {
+                        var iniciales = (p.nombres && p.nombres[0] ? p.nombres[0] : '') + (p.apellidos && p.apellidos[0] ? p.apellidos[0] : '');
+                        html += '<div class="personal-result-item" data-id="' + p.id + '" data-nombres="' + escapeAttr(p.nombres) + '" data-apellidos="' + escapeAttr(p.apellidos) + '">' +
+                            '<div class="personal-icon">' + iniciales.toUpperCase() + '</div>' +
+                            '<div class="personal-info">' +
+                            '<div class="personal-name">' + escapeHtml(p.nombres) + ' ' + escapeHtml(p.apellidos) + '</div>' +
+                            '<div class="personal-detail">ID: ' + p.id + '</div>' +
+                            '</div>' +
+                            '</div>';
+                    });
+                    personalResults.innerHTML = html;
+                    personalResults.classList.add('active');
+                })
+                .catch(function() {
+                    personalResults.innerHTML = '<div class="personal-result-item" style="cursor:default;color:var(--danger);justify-content:center;">Error al buscar</div>';
+                    personalResults.classList.add('active');
+                });
+        }, 250);
+    });
+
+    // Delegación de eventos para resultados de personal
+    personalResults.addEventListener('click', function(e) {
+        var item = e.target.closest('.personal-result-item');
+        if (!item) return;
+        var id = item.getAttribute('data-id');
+        var nombres = item.getAttribute('data-nombres');
+        var apellidos = item.getAttribute('data-apellidos');
+
+        document.getElementById('idPersonal').value = id;
+        document.getElementById('personalSearch').value = '';
+        document.getElementById('personalSearch').placeholder = nombres + ' ' + apellidos;
+        document.getElementById('personalSelected').style.display = 'flex';
+        document.getElementById('personalName').innerHTML = '<i class="fa-solid fa-user"></i> ' + escapeHtml(nombres + ' ' + apellidos);
+        personalResults.classList.remove('active');
+
+        // Auto-completar nombre corto y usuario
+        autoFillFromPersonal(nombres, apellidos);
+    });
+
+    function autoFillFromPersonal(nombres, apellidos) {
+        if (!nombres || !apellidos) return;
+
+        var partesN = nombres.trim().split(/\s+/);
+        var partesA = apellidos.trim().split(/\s+/);
+        var primerNombre = partesN[0] || '';
+        var primerApellido = partesA[0] || '';
+
+        // Auto-fill nombre corto (solo si está vacío o si estamos creando)
+        var nombreCortoInput = document.getElementById('nombreCorto');
+        if (!state.editingId || !nombreCortoInput.value) {
+            nombreCortoInput.value = primerNombre + ' ' + primerApellido;
+        }
+
+        // Auto-generar usuario (solo si estamos creando)
+        if (!state.editingId) {
+            var base = primerNombre.charAt(0).toUpperCase() + primerApellido.toLowerCase();
+            document.getElementById('usuarioInput').value = base;
+
+            // Verificar disponibilidad
+            verificarUsuario(base);
+        }
+    }
+
+    function escapeAttr(text) {
+        if (!text) return '';
+        return text.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    // Ocultar resultados al hacer clic fuera
+    document.addEventListener('click', function(e) {
+        var wrapper = document.querySelector('.personal-search-wrapper');
+        var pr = document.getElementById('personalResults');
+        if (wrapper && pr && !wrapper.contains(e.target)) {
+            pr.classList.remove('active');
+        }
+    });
+
+    // ─── Verificar disponibilidad de usuario ───
+    var usuarioInput = document.getElementById('usuarioInput');
+    var usuarioTimer = null;
+    var nombreCortoTimer = null;
+
+    // Limpiar personal seleccionado
+    document.addEventListener('click', function(e) {
+        if (e.target && e.target.id === 'clearPersonal') {
+            document.getElementById('idPersonal').value = '';
+            document.getElementById('personalSelected').style.display = 'none';
+            document.getElementById('personalSearch').value = '';
+            document.getElementById('personalSearch').placeholder = 'Buscar por nombre o apellido...';
+            // Si estamos creando, intentar sugerir usuario desde nombre corto
+            if (!state.editingId) {
+                var nc = document.getElementById('nombreCorto').value.trim();
+                if (nc) {
+                    sugerirDesdeNombreCorto(nc);
+                }
+            }
+        }
+    });
+
+    function sugerirDesdeNombreCorto(nombreCorto) {
+        if (!nombreCorto || state.editingId) return;
+        fetch('/usuarios/sugerir_usuario?nombre_corto=' + encodeURIComponent(nombreCorto))
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.sugerencias && data.sugerencias.length > 0) {
+                    var container = document.getElementById('usuarioSugerencias');
+                    var list = document.getElementById('sugerenciasList');
+                    var html = '';
+                    data.sugerencias.forEach(function(s) {
+                        html += '<span class="sugerencia-item" onclick="window.__selectSugerencia(\'' + s + '\')">' + escapeHtml(s) + '</span>';
+                    });
+                    list.innerHTML = html;
+                    container.style.display = 'block';
+                    // Auto-completar con la primera sugerencia si el campo usuario está vacío
+                    var inp = document.getElementById('usuarioInput');
+                    if (!inp.value.trim()) {
+                        inp.value = data.sugerencias[0];
+                        verificarUsuario(data.sugerencias[0]);
+                    }
+                }
+            })
+            .catch(function() {});
+    }
+
+    // Evento para sugerir usuario cuando se escribe el nombre corto (sin personal)
+    document.getElementById('nombreCorto').addEventListener('input', function() {
+        clearTimeout(nombreCortoTimer);
+        var val = this.value.trim();
+        if (state.editingId) return;
+        var idPers = document.getElementById('idPersonal').value;
+        if (idPers) return; // Si hay personal seleccionado, no sugerir desde nombre corto
+        nombreCortoTimer = setTimeout(function() {
+            sugerirDesdeNombreCorto(val);
+        }, 500);
+    });
+
+    if (usuarioInput) {
+        usuarioInput.addEventListener('input', function() {
+        clearTimeout(usuarioTimer);
+        var val = this.value.trim();
+
+        if (!val || state.editingId) {
+            document.getElementById('usuarioStatus').className = 'usuario-status';
+            document.getElementById('usuarioStatus').textContent = '';
+            document.getElementById('usuarioSugerencias').style.display = 'none';
+            return;
+        }
+
+        // Mostrar checking
+        document.getElementById('usuarioStatus').className = 'usuario-status checking';
+        document.getElementById('usuarioStatus').innerHTML = '<i class="fa-solid fa-spinner"></i>';
+
+        usuarioTimer = setTimeout(function() {
+            verificarUsuario(val);
+        }, 400);
+    });
+    }
+
+    function verificarUsuario(usuario) {
+        if (!usuario) return;
+        fetch('/usuarios/verificar_usuario?usuario=' + encodeURIComponent(usuario))
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                var statusEl = document.getElementById('usuarioStatus');
+                if (data.disponible) {
+                    statusEl.className = 'usuario-status available';
+                    statusEl.innerHTML = '<i class="fa-solid fa-check-circle" title="Disponible"></i>';
+                    document.getElementById('usuarioSugerencias').style.display = 'none';
+                } else {
+                    statusEl.className = 'usuario-status unavailable';
+                    statusEl.innerHTML = '<i class="fa-solid fa-times-circle" title="No disponible"></i>';
+                    // Cargar sugerencias
+                    cargarSugerencias(usuario);
+                }
+            })
+            .catch(function() {
+                document.getElementById('usuarioStatus').className = 'usuario-status';
+                document.getElementById('usuarioStatus').textContent = '';
+            });
+    }
+
+    function cargarSugerencias(base) {
+        // Extraer nombre y apellido del personal seleccionado o del nombre corto
+        var nombres = '';
+        var apellidos = '';
+        var personalSelected = document.getElementById('personalSelected');
+        var idPersonal = document.getElementById('idPersonal').value;
+        
+        if (personalSelected.style.display !== 'none' && idPersonal) {
+            var text = document.getElementById('personalName').textContent || '';
+            var parts = text.trim().split(/\s+/);
+            if (parts.length >= 2) {
+                nombres = parts[0];
+                apellidos = parts.slice(1).join(' ');
+            }
+        } else {
+            // Usar el nombre corto como referencia
+            var nc = document.getElementById('nombreCorto').value.trim();
+            if (nc) {
+                var parts = nc.split(/\s+/);
+                nombres = parts[0] || '';
+                apellidos = parts.slice(1).join(' ') || 'user';
+            }
+        }
+
+        if (!nombres || !apellidos) {
+            document.getElementById('usuarioSugerencias').style.display = 'none';
+            return;
+        }
+
+        fetch('/usuarios/sugerir_usuario?nombres=' + encodeURIComponent(nombres) + '&apellidos=' + encodeURIComponent(apellidos))
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                var container = document.getElementById('usuarioSugerencias');
+                var list = document.getElementById('sugerenciasList');
+                if (data.sugerencias && data.sugerencias.length > 0) {
+                    var html = '';
+                    data.sugerencias.forEach(function(s) {
+                        html += '<span class="sugerencia-item" onclick="window.__selectSugerencia(\'' + s + '\')">' + escapeHtml(s) + '</span>';
+                    });
+                    list.innerHTML = html;
+                    container.style.display = 'block';
+                } else {
+                    container.style.display = 'none';
+                }
+            })
+            .catch(function() {
+                document.getElementById('usuarioSugerencias').style.display = 'none';
+            });
+    }
+
+    window.__selectSugerencia = function(usuario) {
+        document.getElementById('usuarioInput').value = usuario;
+        document.getElementById('usuarioSugerencias').style.display = 'none';
+        verificarUsuario(usuario);
+    };
+
+    // ─── Submit del formulario ───
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+
+        var editingId = document.getElementById('editId').value;
+        var usuario = document.getElementById('usuarioInput').value.trim();
+        var clave = document.getElementById('claveInput').value;
+        var claveConfirm = document.getElementById('claveConfirm').value;
+        var nombreCorto = document.getElementById('nombreCorto').value.trim();
+        var idRol = document.getElementById('idRol').value;
+        var idPersonal = document.getElementById('idPersonal').value;
+
+        // Validaciones
+        if (!nombreCorto) {
+            showToast('error', 'El nombre corto es obligatorio.');
+            return;
+        }
+        if (!idRol) {
+            showToast('error', 'Debe seleccionar un rol.');
+            return;
+        }
+
+        if (!editingId) {
+            // Creando
+            if (!usuario) {
+                showToast('error', 'El nombre de usuario es obligatorio.');
+                return;
+            }
+            if (!clave || clave.length < 4) {
+                showToast('error', 'La contraseña debe tener al menos 4 caracteres.');
+                return;
+            }
+            if (clave !== claveConfirm) {
+                showToast('error', 'Las contraseñas no coinciden.');
+                return;
+            }
+        } else {
+            // Editando - clave opcional
+            if (clave && clave.length < 4) {
+                showToast('error', 'La contraseña debe tener al menos 4 caracteres.');
+                return;
+            }
+            if (clave !== claveConfirm) {
+                showToast('error', 'Las contraseñas no coinciden.');
+                return;
+            }
+        }
+
+        var payload = {
+            usuario: usuario,
+            clave: clave,
+            nombre_corto: nombreCorto,
+            id_rol: parseInt(idRol),
+            id_personal: idPersonal ? parseInt(idPersonal) : null,
+        };
+
+        var url = editingId ? '/usuarios/' + editingId + '/editar' : '/usuarios/crear';
+
+        fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+        })
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (data.success) {
+                    showToast('success', data.message);
+                    closeModal();
+                    loadTable();
+                } else {
+                    showToast('error', data.error);
+                }
+            })
+            .catch(function() {
+                showToast('error', 'Error de conexión al guardar.');
+            });
+    });
+
+    // ─── Toggle Status ───
+    window.__toggleStatus = function(id, nuevoStatus) {
+        var action = nuevoStatus === 1 ? 'activar' : 'desactivar';
+        var actionText = nuevoStatus === 1 ? 'activar' : 'desactivar';
+
+        Swal.fire({
+            title: (nuevoStatus === 1 ? '¿Activar usuario?' : '¿Desactivar usuario?'),
+            text: '¿Estás seguro que deseas ' + actionText + ' este usuario?',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: nuevoStatus === 1 ? '#2ed573' : '#ffa502',
+            cancelButtonColor: '#6c63ff',
+            confirmButtonText: 'Sí, ' + actionText,
+            cancelButtonText: 'Cancelar',
+            background: '#1e1e24',
+            color: '#e0e0e0',
+            reverseButtons: true,
+        }).then(function(result) {
+            if (result.isConfirmed) {
+                fetch('/usuarios/' + id + '/toggle-status', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status: nuevoStatus }),
+                })
+                    .then(function(r) { return r.json(); })
+                    .then(function(data) {
+                        if (data.success) {
+                            showToast('success', data.message);
+                            loadTable();
+                        } else {
+                            showToast('error', data.error);
+                        }
+                    })
+                    .catch(function() {
+                        showToast('error', 'Error de conexión.');
+                    });
+            }
+        });
+    };
+
+    // ─── Carga inicial ───
+    loadTable();
+
+})();
+</script>
+{% endblock %}

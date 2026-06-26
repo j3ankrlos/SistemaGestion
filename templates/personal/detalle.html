@@ -1,0 +1,122 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="card" style="max-width: 800px; margin: 0 auto;">
+    <div class="card-header">
+        <h2><i class="fa-solid fa-address-card"></i> Detalle de Personal</h2>
+        <div style="display:flex; gap:8px;">
+            {% if 'personal.editar' in session.get('permisos', []) %}
+            <a href="{{ url_for('personal.editar', id=personal.id) }}" class="btn-primary" style="width:auto; padding:10px 20px; display:inline-flex; align-items:center; gap:8px; text-decoration:none;">
+                <i class="fa-solid fa-pen"></i> Editar
+            </a>
+            {% endif %}
+            <a href="{{ url_for('personal.index') }}" class="btn-secondary" style="width:auto; padding:10px 20px; display:inline-flex; align-items:center; gap:8px; text-decoration:none;">
+                <i class="fa-solid fa-arrow-left"></i> Volver
+            </a>
+        </div>
+    </div>
+
+    <!-- Datos Personales -->
+    <div class="form-section">
+        <div class="form-section-title"><i class="fa-solid fa-user"></i> DATOS PERSONALES</div>
+        <div class="detail-grid">
+            <div class="detail-item">
+                <span class="detail-label">Nombres</span>
+                <span class="detail-value">{{ personal.nombres or '---' }}</span>
+            </div>
+            <div class="detail-item">
+                <span class="detail-label">Apellidos</span>
+                <span class="detail-value">{{ personal.apellidos or '---' }}</span>
+            </div>
+            <div class="detail-item">
+                <span class="detail-label">C&eacute;dula</span>
+                <span class="detail-value">{{ personal.cedula or '---' }}</span>
+            </div>
+            <div class="detail-item">
+                <span class="detail-label">Tel&eacute;fono</span>
+                <span class="detail-value">{{ personal.telefono or '---' }}</span>
+            </div>
+            <div class="detail-item" style="grid-column: 1 / -1;">
+                <span class="detail-label">Direcci&oacute;n</span>
+                <span class="detail-value">{{ personal.direccion or '---' }}</span>
+            </div>
+            <div class="detail-item">
+                <span class="detail-label">Ciudad</span>
+                <span class="detail-value">{{ personal.ciudad or '---' }}</span>
+            </div>
+            <div class="detail-item">
+                <span class="detail-label">Parroquia</span>
+                <span class="detail-value">{{ personal.parroquia or '---' }}</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Datos Laborales -->
+    <div class="form-section">
+        <div class="form-section-title"><i class="fa-solid fa-briefcase"></i> DATOS LABORALES</div>
+        <div class="detail-grid">
+            <div class="detail-item">
+                <span class="detail-label">Fecha de Ingreso</span>
+                <span class="detail-value">{{ personal.fecha_ingreso or '---' }}</span>
+            </div>
+            <div class="detail-item">
+                <span class="detail-label">N&uacute;mero de Ficha</span>
+                <span class="detail-value">{{ personal.num_ficha or '---' }}</span>
+            </div>
+            <div class="detail-item">
+                <span class="detail-label">Tipo de N&oacute;mina</span>
+                <span class="detail-value">{{ personal.tipo_nomina or '---' }}</span>
+            </div>
+            <div class="detail-item">
+                <span class="detail-label">Estatus Actual</span>
+                <span class="detail-value">{{ personal.estatus or '---' }}</span>
+            </div>
+            <div class="detail-item">
+                <span class="detail-label">Tipo de Contrato</span>
+                <span class="detail-value">{{ personal.tipo_contrato or '---' }}</span>
+            </div>
+            <div class="detail-item">
+                <span class="detail-label">Cargo</span>
+                <span class="detail-value">{{ personal.cargo or '---' }}</span>
+            </div>
+            <div class="detail-item">
+                <span class="detail-label">Turno</span>
+                <span class="detail-value">{{ personal.turno or '---' }}</span>
+            </div>
+            <div class="detail-item">
+                <span class="detail-label">Centro de Costo</span>
+                <span class="detail-value">{{ personal.centro_costo or '---' }}</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.detail-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    padding: 10px 0;
+}
+.detail-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+.detail-label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+.detail-value {
+    font-size: 1rem;
+    color: var(--text);
+    padding: 8px 12px;
+    background: rgba(255,255,255,0.04);
+    border-radius: 6px;
+    border: 1px solid var(--border);
+}
+</style>
+{% endblock %}

@@ -1,0 +1,5 @@
+Flask
+pyodbc
+bcrypt
+waitress
+python-dotenv

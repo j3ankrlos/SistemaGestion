@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Configuración de Base de Datos - Sistema Porcino</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='sweetalert2/sweetalert2.min.css') }}">
+    <style>
+        .auth-card {
+            max-width: 500px;
+        }
+        .auth-card h2 {
+            margin-bottom: 10px;
+        }
+        .auth-card .subtitle {
+            text-align: center;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            margin-bottom: 25px;
+            line-height: 1.5;
+        }
+        .input-group {
+            display: flex;
+            gap: 0;
+        }
+        .input-group .form-control {
+            border-radius: 6px 0 0 6px;
+            flex: 1;
+        }
+        .input-group .btn-secondary {
+            padding: 12px 16px;
+            background-color: var(--bg-tertiary);
+            color: var(--text-primary);
+            border: 1px solid var(--border);
+            border-left: none;
+            border-radius: 0 6px 6px 0;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            white-space: nowrap;
+        }
+        .input-group .btn-secondary:hover {
+            background-color: var(--accent);
+            color: #fff;
+        }
+    </style>
+</head>
+<body>
+    <div class="auth-container">
+        <div class="auth-card">
+            <h2><i class="fa-solid fa-database" style="color: var(--accent); margin-right: 10px;"></i>Conexión a Base de Datos</h2>
+            <p class="subtitle">
+                El sistema no detecta una conexión a la base de datos Access.<br>
+                Selecciona el archivo de base de datos para continuar.
+            </p>
+            
+            <div id="setup-error" data-error="{{ error or '' }}"></div>
+
+            <form method="POST" action="{{ url_for('setup_db') }}">
+                <div class="form-group">
+                    <label for="db_path">Ruta del Archivo (.accdb / .mdb)</label>
+                    <div class="input-group">
+                        <input type="text" id="db_path" name="db_path" class="form-control" placeholder="Selecciona un archivo..." required readonly>
+                        <button class="btn-secondary" type="button" id="btn-pick-file">
+                            <i class="fa-solid fa-folder-open"></i> Buscar
+                        </button>
+                    </div>
+                </div>
+                <button type="submit" class="btn-primary">
+                    <i class="fa-solid fa-link" style="margin-right: 8px;"></i>Conectar y Guardar
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='sweetalert2/sweetalert2.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    <script>
+        // Mostrar error del servidor con SweetAlert2
+        (function() {
+            var errDiv = document.getElementById('setup-error');
+            if (errDiv) {
+                var errorMsg = errDiv.getAttribute('data-error');
+                if (errorMsg && errorMsg.length > 0) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: errorMsg,
+                        background: '#1e1e24',
+                        color: '#e0e0e0',
+                        iconColor: '#ff4757',
+                        confirmButtonColor: '#6c63ff'
+                    });
+                }
+            }
+        })();
+
+        document.getElementById('btn-pick-file').addEventListener('click', async function() {
+            try {
+                Swal.fire({
+                    title: 'Abriendo explorador de archivos...',
+                    html: '<p style="color: #e0e0e0;">Revisa <strong>detrás de esta ventana</strong> o en la <strong>barra de tareas</strong> de Windows.</p><p style="color: #a0a0a0; font-size: 0.85rem;">Si no aparece, busca la ventana "Abrir" o "Seleccionar archivo" en la barra de tareas.</p>',
+                    allowOutsideClick: false,
+                    background: '#1e1e24',
+                    color: '#e0e0e0',
+                    iconColor: '#6c63ff',
+                    didOpen: () => {
+                        Swal.showLoading()
+                    }
+                });
+                
+                const response = await fetch("{{ url_for('browse_db') }}");
+                const data = await response.json();
+                
+                Swal.close();
+                
+                if (data.path) {
+                    document.getElementById('db_path').value = data.path;
+                } else if (data.error) {
+                    Swal.fire({
+                        icon: 'error',
+                        title: 'Error',
+                        text: data.error || 'Error al seleccionar archivo',
+                        background: '#1e1e24',
+                        color: '#e0e0e0',
+                        iconColor: '#ff4757',
+                        confirmButtonColor: '#6c63ff'
+                    });
+                }
+            } catch (err) {
+                Swal.close();
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Error',
+                    text: 'No se pudo abrir el selector de archivos',
+                    background: '#1e1e24',
+                    color: '#e0e0e0',
+                    iconColor: '#ff4757',
+                    confirmButtonColor: '#6c63ff'
+                });
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,220 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h2><i class="fa-solid fa-address-book"></i> Gesti&oacute;n de Personal</h2>
+        {% if 'personal.crear' in session.get('permisos', []) %}
+        <a href="{{ url_for('personal.crear') }}" class="btn-primary" style="width:auto; padding:10px 20px; display:inline-flex; align-items:center; gap:8px; text-decoration:none;">
+            <i class="fa-solid fa-plus"></i> Nuevo Personal
+        </a>
+        {% endif %}
+    </div>
+
+    <!-- Buscador inteligente -->
+    <div class="search-bar">
+        <i class="fa-solid fa-search search-icon"></i>
+        <input type="text" id="searchInput" class="form-control" placeholder="Buscar por nombres, apellidos, c&eacute;dula, tel&eacute;fono o ficha..." autocomplete="off">
+        <button class="btn-search-clear" id="searchClear" title="Limpiar b&uacute;squeda"><i class="fa-solid fa-times"></i></button>
+    </div>
+
+    <!-- Tabla -->
+    <div class="table-responsive">
+        <table class="table-hover" id="personalTable">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Nombres</th>
+                    <th>Apellidos</th>
+                    <th>C&eacute;dula</th>
+                    <th>Tel&eacute;fono</th>
+                    <th>Estatus</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody id="personalTableBody">
+                <!-- Se carga vía AJAX -->
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Paginador -->
+    <div class="pagination-container" id="paginationContainer">
+        <!-- Se genera vía JS -->
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+    'use strict';
+
+    var state = { page: 1, search: '', totalPages: 1 };
+    var permisos = {{ session.get('permisos', []) | tojson | safe }};
+
+    function showToast(icon, title) {
+        Swal.fire({ toast:true, position:'top-end', icon:icon, title:title,
+            showConfirmButton:false, timer:3000, timerProgressBar:true,
+            background:'#1e1e24', color:'#e0e0e0' });
+    }
+
+    function loadTable() {
+        var tbody = document.getElementById('personalTableBody');
+        tbody.innerHTML = '<tr><td colspan="7" class="table-loading"><div class="spinner"></div></td></tr>';
+
+        fetch('/personal/data?page=' + state.page + '&search=' + encodeURIComponent(state.search))
+            .then(function(r) { return r.json(); })
+            .then(function(data) { renderTable(data); renderPagination(data); })
+            .catch(function(err) {
+                tbody.innerHTML = '<tr><td colspan="7" class="table-empty"><i class="fa-solid fa-exclamation-triangle"></i><p>Error al cargar datos</p></td></tr>';
+                console.error(err);
+            });
+    }
+
+    function renderTable(data) {
+        var tbody = document.getElementById('personalTableBody');
+        var rows = data.data;
+
+        if (!rows || rows.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" class="table-empty"><i class="fa-solid fa-address-book"></i><p>No se encontraron registros de personal</p></td></tr>';
+            return;
+        }
+
+        var html = '';
+        rows.forEach(function(p) {
+            var estatusClass = (p.estatus === 'ACTIVO' || p.estatus === 'A') ? 'active' : 'inactive';
+            var estatusText = p.estatus || 'Sin estatus';
+
+            var acciones = '<div class="action-btns">';
+
+            {% if 'personal.ver' in session.get('permisos', []) %}
+            acciones += '<a href="{{ url_for('personal.detalle', id=0) }}'.replace('/0', '/' + p.id) + '" class="btn-action edit" title="Ver detalle"><i class="fa-solid fa-eye"></i></a>';
+            {% endif %}
+
+            {% if 'personal.editar' in session.get('permisos', []) %}
+            acciones += '<a href="{{ url_for('personal.editar', id=0) }}'.replace('/0', '/' + p.id) + '" class="btn-action edit" title="Editar"><i class="fa-solid fa-pen"></i></a>';
+            {% endif %}
+
+            {% if 'personal.eliminar' in session.get('permisos', []) %}
+            acciones += '<button class="btn-action deactivate" onclick="eliminarPersonal(' + p.id + ')" title="Eliminar"><i class="fa-solid fa-trash"></i></button>';
+            {% endif %}
+
+            acciones += '</div>';
+
+            html += '<tr>' +
+                '<td><strong>' + p.id + '</strong></td>' +
+                '<td>' + escapeHtml(p.nombres) + '</td>' +
+                '<td>' + escapeHtml(p.apellidos) + '</td>' +
+                '<td>' + escapeHtml(p.cedula) + '</td>' +
+                '<td>' + escapeHtml(p.telefono) + '</td>' +
+                '<td><span class="status-badge ' + estatusClass + '"><span class="status-dot ' + estatusClass + '"></span> ' + escapeHtml(estatusText) + '</span></td>' +
+                '<td>' + acciones + '</td>' +
+                '</tr>';
+        });
+        tbody.innerHTML = html;
+    }
+
+    function escapeHtml(text) {
+        if (!text) return '';
+        var d = document.createElement('div');
+        d.textContent = text;
+        return d.innerHTML;
+    }
+
+    function renderPagination(data) {
+        var container = document.getElementById('paginationContainer');
+        var page = data.page, totalPages = data.total_pages, total = data.total;
+        state.totalPages = totalPages;
+
+        var html = '<div class="pagination-info">Mostrando p&aacute;gina ' + page + ' de ' + totalPages + ' (' + total + ' registros)</div><div class="pagination-controls">';
+
+        var prevDisabled = page <= 1 ? 'disabled' : '';
+        html += '<button class="pagination-btn ' + prevDisabled + '" onclick="window.__goPage(' + (page - 1) + ')" ' + (prevDisabled ? 'disabled' : '') + '><i class="fa-solid fa-chevron-left"></i></button>';
+
+        var startPage = Math.max(1, page - 2);
+        var endPage = Math.min(totalPages, page + 2);
+
+        if (startPage > 1) {
+            html += '<button class="pagination-btn" onclick="window.__goPage(1)">1</button>';
+            if (startPage > 2) html += '<span class="pagination-btn disabled" style="border:none;background:none;">...</span>';
+        }
+        for (var i = startPage; i <= endPage; i++) {
+            var active = i === page ? 'active' : '';
+            html += '<button class="pagination-btn ' + active + '" onclick="window.__goPage(' + i + ')">' + i + '</button>';
+        }
+        if (endPage < totalPages) {
+            if (endPage < totalPages - 1) html += '<span class="pagination-btn disabled" style="border:none;background:none;">...</span>';
+            html += '<button class="pagination-btn" onclick="window.__goPage(' + totalPages + ')">' + totalPages + '</button>';
+        }
+
+        var nextDisabled = page >= totalPages ? 'disabled' : '';
+        html += '<button class="pagination-btn ' + nextDisabled + '" onclick="window.__goPage(' + (page + 1) + ')" ' + (nextDisabled ? 'disabled' : '') + '><i class="fa-solid fa-chevron-right"></i></button>';
+        html += '</div>';
+        container.innerHTML = html;
+    }
+
+    window.__goPage = function(p) {
+        if (p < 1 || p > state.totalPages) return;
+        state.page = p;
+        loadTable();
+    };
+
+    // ─── Búsqueda con debounce ───
+    var searchTimer = null;
+    document.getElementById('searchInput').addEventListener('input', function() {
+        var val = this.value.trim();
+        var clearBtn = document.getElementById('searchClear');
+        clearBtn.style.display = val.length > 0 ? 'block' : 'none';
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(function() {
+            state.search = val;
+            state.page = 1;
+            loadTable();
+        }, 350);
+    });
+
+    document.getElementById('searchClear').addEventListener('click', function() {
+        document.getElementById('searchInput').value = '';
+        this.style.display = 'none';
+        state.search = '';
+        state.page = 1;
+        loadTable();
+    });
+
+    // ─── Eliminar ───
+    window.eliminarPersonal = function(id) {
+        Swal.fire({
+            title: '¿Eliminar Personal?',
+            text: 'Esta acci&oacute;n no se puede deshacer.',
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#ff4757',
+            cancelButtonColor: '#6c63ff',
+            confirmButtonText: 'S&iacute;, eliminar',
+            cancelButtonText: 'Cancelar',
+            background: '#1e1e24',
+            color: '#e0e0e0',
+            reverseButtons: true
+        }).then(function(result) {
+            if (result.isConfirmed) {
+                fetch('/personal/' + id + '/eliminar', { method: 'POST' })
+                    .then(function(r) { return r.json(); })
+                    .then(function(resp) {
+                        if (resp.success) {
+                            showToast('success', resp.message);
+                            loadTable();
+                        } else {
+                            showToast('error', resp.error);
+                        }
+                    })
+                    .catch(function() { showToast('error', 'Error de conexi&oacute;n.'); });
+            }
+        });
+    };
+
+    // ─── Carga inicial ───
+    loadTable();
+})();
+</script>
+{% endblock %}

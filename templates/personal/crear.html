@@ -1,0 +1,203 @@
+{% extends 'base.html' %}
+
+{% block content %}
+{% set es_editar = personal and personal.id is not none and personal.id > 0 %}
+
+<div class="card" style="max-width: 900px; margin: 0 auto;">
+    <div class="card-header">
+        <h2>
+            {% if es_editar %}
+            <i class="fa-solid fa-user-edit"></i> Editar Personal
+            {% else %}
+            <i class="fa-solid fa-user-plus"></i> Nuevo Personal
+            {% endif %}
+        </h2>
+        <a href="{{ url_for('personal.index') }}" class="btn-secondary" style="width:auto; padding:10px 20px; display:inline-flex; align-items:center; gap:8px; text-decoration:none;">
+            <i class="fa-solid fa-arrow-left"></i> Volver
+        </a>
+    </div>
+
+    <form method="POST" action="{% if es_editar %}{{ url_for('personal.editar', id=personal.id) }}{% else %}{{ url_for('personal.crear') }}{% endif %}" autocomplete="off">
+
+        <!-- ═══ DATOS PERSONALES ═══ -->
+        <div class="form-section">
+            <div class="form-section-title">
+                <i class="fa-solid fa-user"></i> DATOS PERSONALES
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="nombres">Nombres <span style="color:var(--danger);">*</span></label>
+                    <input type="text" id="nombres" name="nombres" class="form-control" required
+                           value="{{ personal.nombres if personal and personal.nombres else '' }}"
+                           placeholder="Ingrese los nombres">
+                </div>
+                <div class="form-group">
+                    <label for="apellidos">Apellidos <span style="color:var(--danger);">*</span></label>
+                    <input type="text" id="apellidos" name="apellidos" class="form-control" required
+                           value="{{ personal.apellidos if personal and personal.apellidos else '' }}"
+                           placeholder="Ingrese los apellidos">
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="cedula">C&eacute;dula</label>
+                    <input type="text" id="cedula" name="cedula" class="form-control"
+                           value="{{ personal.cedula if personal and personal.cedula else '' }}"
+                           placeholder="0000000000">
+                </div>
+                <div class="form-group">
+                    <label for="telefono">Tel&eacute;fono</label>
+                    <input type="text" id="telefono" name="telefono" class="form-control"
+                           value="{{ personal.telefono if personal and personal.telefono else '' }}"
+                           placeholder="0412-0000000">
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="direccion">Direcci&oacute;n</label>
+                    <input type="text" id="direccion" name="direccion" class="form-control"
+                           value="{{ personal.direccion if personal and personal.direccion else '' }}"
+                           placeholder="Direcci&oacute;n de domicilio">
+                </div>
+                <div class="form-group">
+                    <label for="ciudad">Ciudad</label>
+                    <input type="text" id="ciudad" name="ciudad" class="form-control"
+                           value="{{ personal.ciudad if personal and personal.ciudad else '' }}"
+                           placeholder="Ciudad">
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="id_parroquia">Parroquia</label>
+                    <select id="id_parroquia" name="id_parroquia" class="form-control">
+                        <option value="">-- Seleccione --</option>
+                        {% for p in parroquias %}
+                        <option value="{{ p[0] }}" {% if personal and personal.id_parroquia == p[0] %}selected{% endif %}>{{ p[2] }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <!-- Empty for alignment -->
+                </div>
+            </div>
+        </div>
+
+        <!-- ═══ DATOS LABORALES ═══ -->
+        <div class="form-section">
+            <div class="form-section-title">
+                <i class="fa-solid fa-briefcase"></i> DATOS LABORALES
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="fecha_ingreso">Fecha de Ingreso</label>
+                    <input type="date" id="fecha_ingreso" name="fecha_ingreso" class="form-control"
+                           value="{{ personal.fecha_ingreso if personal and personal.fecha_ingreso else '' }}">
+                </div>
+                <div class="form-group">
+                    <label for="num_ficha">N&uacute;mero de Ficha</label>
+                    <input type="text" id="num_ficha" name="num_ficha" class="form-control"
+                           value="{{ personal.num_ficha if personal and personal.num_ficha else '' }}"
+                           placeholder="N&uacute;mero de ficha">
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="id_tipo_nomina">Tipo de N&oacute;mina</label>
+                    <select id="id_tipo_nomina" name="id_tipo_nomina" class="form-control">
+                        <option value="">-- Seleccione --</option>
+                        {% for tn in tipo_nomina %}
+                        <option value="{{ tn[0] }}" {% if personal and personal.id_tipo_nomina == tn[0] %}selected{% endif %}>{{ tn[1] }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="id_estatus">Estatus Actual</label>
+                    <select id="id_estatus" name="id_estatus" class="form-control">
+                        <option value="">-- Seleccione --</option>
+                        {% for ea in estatus_actual %}
+                        <option value="{{ ea[0] }}" {% if personal and personal.id_estatus == ea[0] %}selected{% endif %}>{{ ea[1] }} - {{ ea[2] }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="id_contrato">Tipo de Contrato</label>
+                    <select id="id_contrato" name="id_contrato" class="form-control">
+                        <option value="">-- Seleccione --</option>
+                        {% for tc in tipo_contrato %}
+                        <option value="{{ tc[0] }}" {% if personal and personal.id_contrato == tc[0] %}selected{% endif %}>{{ tc[1] }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="id_cargo">Cargo</label>
+                    <select id="id_cargo" name="id_cargo" class="form-control">
+                        <option value="">-- Seleccione --</option>
+                        {% for c in cargos %}
+                        <option value="{{ c[0] }}" {% if personal and personal.id_cargo == c[0] %}selected{% endif %}>{{ c[1] }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="id_turno">Turno</label>
+                    <select id="id_turno" name="id_turno" class="form-control">
+                        <option value="">-- Seleccione --</option>
+                        {% for t in turnos %}
+                        <option value="{{ t[0] }}" {% if personal and personal.id_turno == t[0] %}selected{% endif %}>{{ t[1] }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="id_centro_costo">Centro de Costo</label>
+                    <select id="id_centro_costo" name="id_centro_costo" class="form-control">
+                        <option value="">-- Seleccione --</option>
+                        {% for cc in centros_costo %}
+                        <option value="{{ cc[0] }}" {% if personal and personal.id_centro_costo == cc[0] %}selected{% endif %}>{{ cc[1] }} - {{ cc[2] }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- Botones -->
+        <div style="display:flex; gap:12px; margin-top:30px; justify-content:flex-end; padding-top:20px; border-top:1px solid var(--border);">
+            <a href="{{ url_for('personal.index') }}" class="btn-secondary" style="width:auto; padding:12px 24px; text-decoration:none;">
+                <i class="fa-solid fa-times"></i> Cancelar
+            </a>
+            <button type="submit" class="btn-primary" style="width:auto; padding:12px 30px; display:inline-flex; align-items:center; gap:8px;">
+                <i class="fa-solid fa-save"></i>
+                {% if es_editar %} Actualizar Personal {% else %} Guardar Personal {% endif %}
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+    'use strict';
+
+    // Auto-mayúsculas en nombres y apellidos
+    function capitalize(str) {
+        return str.replace(/\b\w/g, function(c) { return c.toUpperCase(); });
+    }
+
+    document.getElementById('nombres')?.addEventListener('blur', function() {
+        this.value = capitalize(this.value.trim());
+    });
+    document.getElementById('apellidos')?.addEventListener('blur', function() {
+        this.value = capitalize(this.value.trim());
+    });
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema Porcino</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <!-- Font Awesome para iconos -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='sweetalert2/sweetalert2.min.css') }}">
+</head>
+<body>
+    <aside class="sidebar">
+        <div class="sidebar-header">
+            <i class="fa-solid fa-piggy-bank"></i> <span>Sistema Porcino</span>
+        </div>
+        <ul class="nav-links">
+            <li>
+                <a href="{{ url_for('index') }}" class="{% if request.endpoint == 'index' %}active{% endif %}">
+                    <i class="fa-solid fa-house"></i> <span>Inicio</span>
+                </a>
+            </li>
+            
+            {% set tiene_modulo_usuarios = 'usuarios.ver' in session.get('permisos', []) or 'roles.ver' in session.get('permisos', []) or 'permisos.ver' in session.get('permisos', []) %}
+            {% if tiene_modulo_usuarios %}
+            {% set submenu_activo = (request.endpoint and (request.endpoint.startswith('usuarios') or request.endpoint.startswith('roles') or request.endpoint.startswith('permisos'))) %}
+            <li class="nav-item has-submenu">
+                <a href="#" class="submenu-toggle {% if submenu_activo %}expanded{% endif %}" data-target="submenuUsuarios">
+                    <i class="fa-solid fa-users"></i> <span>Usuarios</span>
+                    <i class="fa-solid fa-chevron-down submenu-arrow"></i>
+                </a>
+                <ul class="submenu {% if submenu_activo %}expanded{% endif %}" id="submenuUsuarios">
+                    {% if 'usuarios.ver' in session.get('permisos', []) %}
+                    <li>
+                        <a href="{{ url_for('usuarios.index') }}" class="{% if request.endpoint and request.endpoint.startswith('usuarios') and not request.endpoint.startswith('usuarios.roles') and not request.endpoint.startswith('usuarios.permisos') %}active{% endif %}">
+                            <i class="fa-solid fa-list"></i> <span>Lista de Usuarios</span>
+                        </a>
+                    </li>
+                    {% endif %}
+                    {% if 'roles.ver' in session.get('permisos', []) %}
+                    <li>
+                        <a href="{{ url_for('roles.index') }}" class="{% if request.endpoint and request.endpoint.startswith('roles') %}active{% endif %}">
+                            <i class="fa-solid fa-shield-halved"></i> <span>Roles</span>
+                        </a>
+                    </li>
+                    {% endif %}
+                    {% if 'permisos.ver' in session.get('permisos', []) %}
+                    <li>
+                        <a href="{{ url_for('permisos.index') }}" class="{% if request.endpoint and request.endpoint.startswith('permisos') %}active{% endif %}">
+                            <i class="fa-solid fa-key"></i> <span>Permisos</span>
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </li>
+            {% endif %}
+
+            {% set tiene_modulo_personal = 'personal.ver' in session.get('permisos', []) %}
+            {% if tiene_modulo_personal %}
+            {% set submenu_personal_activo = (request.endpoint and request.endpoint.startswith('personal')) %}
+            <li class="nav-item has-submenu">
+                <a href="#" class="submenu-toggle {% if submenu_personal_activo %}expanded{% endif %}" data-target="submenuPersonal">
+                    <i class="fa-solid fa-address-book"></i> <span>Personal</span>
+                    <i class="fa-solid fa-chevron-down submenu-arrow"></i>
+                </a>
+                <ul class="submenu {% if submenu_personal_activo %}expanded{% endif %}" id="submenuPersonal">
+                    {% if 'personal.ver' in session.get('permisos', []) %}
+                    <li>
+                        <a href="{{ url_for('personal.index') }}" class="{% if request.endpoint and request.endpoint.startswith('personal') and request.endpoint != 'personal.crear' %}active{% endif %}">
+                            <i class="fa-solid fa-list"></i> <span>Lista de Personal</span>
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </li>
+            {% endif %}
+
+        </ul>
+
+        {% if 'configuracion.ver' in session.get('permisos', []) or session.get('rol_id') == 1 %}
+        <div class="sidebar-bottom">
+            <ul class="nav-links">
+                <li class="nav-item has-submenu">
+                    <a href="#" class="submenu-toggle {% if request.endpoint and request.endpoint.startswith('config') %}expanded{% endif %}" data-target="submenuConfig">
+                        <i class="fa-solid fa-gear"></i> <span>Configuración</span>
+                        <i class="fa-solid fa-chevron-down submenu-arrow"></i>
+                    </a>
+                    <ul class="submenu {% if request.endpoint and request.endpoint.startswith('config') %}expanded{% endif %}" id="submenuConfig">
+                        <li>
+                            <a href="{{ url_for('config.database') }}" class="{% if request.endpoint == 'config.database' %}active{% endif %}">
+                                <i class="fa-solid fa-database"></i> <span>Base de Datos</span>
+                            </a>
+                        </li>
+                    </ul>
+                </li>
+            </ul>
+        </div>
+        {% endif %}
+    </aside>
+
+    <main class="main-content">
+        <header class="topbar">
+            <div class="topbar-left">
+                <button class="sidebar-toggle" id="sidebarToggle" title="Colapsar sidebar">
+                    <i class="fa-solid fa-bars"></i>
+                </button>
+            </div>
+            <div class="user-dropdown">
+                <button class="user-dropdown-toggle" id="userDropdownToggle">
+                    <div class="user-avatar">
+                        <img class="avatar-img" src="{{ url_for('user_avatar') }}" alt="Avatar" style="display:none;">
+                        <span class="avatar-initials">{{ session.get('iniciales', 'U') }}</span>
+                    </div>
+                    <div class="user-meta">
+                        <span class="user-name">{{ session.get('nombre', 'Usuario') }}</span>
+                        <span class="user-role">{{ session.get('rol_nombre', '') }}</span>
+                    </div>
+                    <i class="fa-solid fa-chevron-down dropdown-arrow"></i>
+                </button>
+                <div class="dropdown-menu" id="userDropdownMenu">
+                    <a href="{{ url_for('auth.logout') }}" class="dropdown-item">
+                        <i class="fa-solid fa-right-from-bracket"></i> Cerrar Sesión
+                    </a>
+                </div>
+            </div>
+        </header>
+
+        <div class="content-area">
+            <div id="flash-messages" style="display:none;"
+                 data-messages='{{ get_flashed_messages(with_categories=true) | tojson | safe }}'>
+            </div>
+
+            {% block content %}{% endblock %}
+        </div>
+    </main>
+
+    <script src="{{ url_for('static', filename='sweetalert2/sweetalert2.min.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    {% block scripts %}{% endblock %}
+</body>
+</html>
