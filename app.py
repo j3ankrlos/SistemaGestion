@@ -8,6 +8,7 @@ from routes.permisos import permisos_bp
 from routes.configuracion import config_bp
 from routes.personal import personal_bp
 from routes.incidencias import incidencias_bp
+from routes.asistencias import asistencias_bp
 from utils.decorators import login_required
 
 # ── Crear aplicación Flask ──
@@ -23,14 +24,17 @@ import time
 #  Heartbeat - Auto-apagado al cerrar navegador
 # ═══════════════════════════════════════════════
 # Si AUTO_SHUTDOWN=0 (variable de entorno), el servidor NO se apaga solo.
-# Por defecto: se apaga a los 10s sin heartbeat (pestaña/ventana cerrada)
+# Por defecto: se apaga a los 60min sin heartbeat, o inmediatamente al
+# cerrar el navegador vía /shutdown (sendBeacon).
 _AUTO_SHUTDOWN = os.environ.get('AUTO_SHUTDOWN', '1') == '1'
 
 last_heartbeat = time.time()       # Último latido recibido
 server_started_at = time.time()    # Momento en que arrancó el servidor
 
-# Tiempo máximo sin heartbeat antes de apagar (10 segundos = ~5 beats perdidos)
-_HEARTBEAT_IDLE_MAX = int(os.environ.get('HEARTBEAT_IDLE_MAX', '10'))
+# Tiempo máximo sin heartbeat antes de apagar (3600s = 60 minutos)
+# Al cerrar el navegador se envía una señal de apagado inmediato vía /shutdown,
+# este valor es solo un fallback de seguridad por si no llega esa señal.
+_HEARTBEAT_IDLE_MAX = int(os.environ.get('HEARTBEAT_IDLE_MAX', '3600'))
 # Periodo de gracia inicial (30s para dar tiempo a cargar el login)
 _HEARTBEAT_GRACE    = int(os.environ.get('HEARTBEAT_GRACE', '30'))
 
@@ -141,6 +145,7 @@ app.register_blueprint(permisos_bp, url_prefix='/usuarios/permisos')
 app.register_blueprint(config_bp, url_prefix='/config')
 app.register_blueprint(personal_bp, url_prefix='/personal')
 app.register_blueprint(incidencias_bp, url_prefix='/incidencias')
+app.register_blueprint(asistencias_bp, url_prefix='/asistencias')
 
 
 # ──────────────────────────────────────────────
@@ -402,13 +407,13 @@ if __name__ == '__main__':
     # Intentar liberar el puerto antes de iniciar (por si quedó ocupado)
     liberar_puerto(PORT)
 
-    print("╔══════════════════════════════════════════╗")
-    print("║     SISTEMA PORCINO - Gestión           ║")
-    print("╠══════════════════════════════════════════╣")
-    print(f"║  Servidor: http://localhost:{PORT}         ║")
-    print("║  Para APAGAR: Cierra esta ventana       ║")
-    print("║  o pulsa Ctrl+C                         ║")
-    print("╚══════════════════════════════════════════╝")
+    print("============================================")
+    print("|     SISTEMA DE GESTIÓN                     |")
+    print("============================================")
+    print(f"|  Servidor: http://localhost:{PORT:<13} |")
+    print("|  Para APAGAR: Cierra esta ventana        |")
+    print("|  o pulsa Ctrl+C                          |")
+    print("============================================")
     print("")
 
     # Iniciar servidor con Waitress (bound a todas las interfaces)

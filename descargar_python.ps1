@@ -1,6 +1,6 @@
 <#
 ╔══════════════════════════════════════════════════════════╗
-║   SISTEMA PORCINO - Descargar Python Portable           ║
+║   SISTEMA DE GESTIÓN - Descargar Python Portable      ║
 ║   Úsalo si la computadora NO tiene Python instalado     ║
 ╚══════════════════════════════════════════════════════════╝
 #>

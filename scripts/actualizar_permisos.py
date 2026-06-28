@@ -20,7 +20,7 @@ print(f"Conectado a: {DB_PATH}")
 c = conn.cursor()
 
 # ─── 1) MÓDULOS QUE EXISTEN EN EL CÓDIGO (blueprints registrados en app.py) ───
-MODULOS_REALES = {'usuarios', 'roles', 'permisos', 'configuracion', 'personal'}
+MODULOS_REALES = {'usuarios', 'roles', 'permisos', 'configuracion', 'personal', 'incidencias', 'asistencias', 'areas'}
 
 # ─── 2) ELIMINAR PERMISOS DE MÓDULOS QUE YA NO EXISTEN ───
 c.execute("SELECT DISTINCT Modulo FROM Permisos")
@@ -63,6 +63,21 @@ permisos_requeridos = {
         ('crear', 'personal.crear'),
         ('editar', 'personal.editar'),
         ('eliminar', 'personal.eliminar'),
+    ],
+    'incidencias': [
+        ('ver', 'incidencias.ver'),
+        ('crear', 'incidencias.crear'),
+        ('eliminar', 'incidencias.eliminar'),
+    ],
+    'asistencias': [
+        ('ver', 'asistencias.ver'),
+        ('registrar', 'asistencias.registrar'),
+    ],
+    'areas': [
+        ('ver', 'areas.ver'),
+        ('crear', 'areas.crear'),
+        ('editar', 'areas.editar'),
+        ('eliminar', 'areas.eliminar'),
     ],
 }
 

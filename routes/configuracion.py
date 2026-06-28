@@ -191,3 +191,162 @@ def admin_tipos_incidencias():
     (reposos, vacaciones, permisos, etc.)
     """
     return render_template('configuracion/incidencias_tipos.html')
+
+
+# ──────────────────────────────────────────────
+#  Administrar Áreas
+# ──────────────────────────────────────────────
+@config_bp.route('/areas')
+@login_required
+@config_required
+def admin_areas():
+    """Página para administrar el catálogo de áreas."""
+    return render_template('configuracion/areas.html')
+
+
+@config_bp.route('/api/areas', methods=['GET'])
+@login_required
+def api_areas_listar():
+    """Devuelve JSON con todas las áreas y su sitio asociado."""
+    if 'areas.ver' not in session.get('permisos', []) and session.get('rol_id') != 1:
+        return {'success': False, 'error': 'Permiso denegado'}, 403
+    try:
+        conn = get_connection()
+        c = conn.cursor()
+        is_admin = session.get('rol_id') == 1
+        user_sitio = session.get('fk_sitio', 0)
+        if is_admin or not user_sitio:
+            c.execute("""
+                SELECT a.IdArea, a.Area, a.Fk_IdSitio, s.Sitio
+                FROM Areas a
+                LEFT JOIN Sitios s ON a.Fk_IdSitio = s.IdSitio
+                ORDER BY a.Area
+            """)
+        else:
+            c.execute("""
+                SELECT a.IdArea, a.Area, a.Fk_IdSitio, s.Sitio
+                FROM Areas a
+                LEFT JOIN Sitios s ON a.Fk_IdSitio = s.IdSitio
+                WHERE a.Fk_IdSitio = ?
+                ORDER BY a.Area
+            """, (user_sitio,))
+        rows = c.fetchall()
+        conn.close()
+        areas = []
+        for r in rows:
+            areas.append({
+                'id': r[0],
+                'area': r[1],
+                'fk_sitio': r[2],
+                'sitio': r[3] or ''
+            })
+        return {'success': True, 'data': areas}
+    except Exception as e:
+        return {'success': False, 'error': str(e)}, 500
+
+
+@config_bp.route('/api/sitios', methods=['GET'])
+@login_required
+def api_sitios_listar():
+    """Devuelve JSON con los sitios para el dropdown.
+       Los usuarios no-admin solo ven su propio sitio."""
+    try:
+        conn = get_connection()
+        c = conn.cursor()
+        user_sitio = session.get('fk_sitio')
+        if session.get('rol_id') == 1 or not user_sitio:
+            c.execute("SELECT IdSitio, Sitio FROM Sitios ORDER BY Sitio")
+        else:
+            c.execute("SELECT IdSitio, Sitio FROM Sitios WHERE IdSitio = ? ORDER BY Sitio", (user_sitio,))
+        rows = c.fetchall()
+        conn.close()
+        sitios = [{'id': r[0], 'sitio': r[1]} for r in rows]
+        return {'success': True, 'data': sitios}
+    except Exception as e:
+        return {'success': False, 'error': str(e)}, 500
+
+
+@config_bp.route('/api/areas/crear', methods=['POST'])
+@login_required
+def api_areas_crear():
+    """Crea un área nueva."""
+    if 'areas.crear' not in session.get('permisos', []) and session.get('rol_id') != 1:
+        return {'success': False, 'error': 'Permiso denegado'}, 403
+    nombre = request.form.get('nombre', '').strip().upper()
+    fk_sitio = request.form.get('fk_sitio', '').strip()
+    if not nombre:
+        return {'success': False, 'error': 'El nombre del área es obligatorio'}
+    fk_sitio_val = int(fk_sitio) if fk_sitio and fk_sitio.isdigit() else None
+    try:
+        conn = get_connection()
+        c = conn.cursor()
+        c.execute("SELECT COUNT(*) FROM Areas WHERE Area = ?", (nombre,))
+        if c.fetchone()[0] > 0:
+            conn.close()
+            return {'success': False, 'error': f'El área "{nombre}" ya existe'}
+        c.execute(
+            "INSERT INTO Areas (Area, Fk_IdSitio) VALUES (?, ?)",
+            (nombre, fk_sitio_val)
+        )
+        conn.commit()
+        conn.close()
+        return {'success': True, 'message': f'Área "{nombre}" creada correctamente'}
+    except Exception as e:
+        return {'success': False, 'error': str(e)}, 500
+
+
+@config_bp.route('/api/areas/editar', methods=['POST'])
+@login_required
+def api_areas_editar():
+    """Actualiza un área existente."""
+    if 'areas.editar' not in session.get('permisos', []) and session.get('rol_id') != 1:
+        return {'success': False, 'error': 'Permiso denegado'}, 403
+    area_id = request.form.get('id', '').strip()
+    nombre = request.form.get('nombre', '').strip().upper()
+    fk_sitio = request.form.get('fk_sitio', '').strip()
+    if not area_id or not area_id.isdigit():
+        return {'success': False, 'error': 'ID inválido'}
+    if not nombre:
+        return {'success': False, 'error': 'El nombre del área es obligatorio'}
+    fk_sitio_val = int(fk_sitio) if fk_sitio and fk_sitio.isdigit() else None
+    try:
+        conn = get_connection()
+        c = conn.cursor()
+        c.execute("SELECT COUNT(*) FROM Areas WHERE Area = ? AND IdArea <> ?", (nombre, int(area_id)))
+        if c.fetchone()[0] > 0:
+            conn.close()
+            return {'success': False, 'error': f'El área "{nombre}" ya existe'}
+        c.execute(
+            "UPDATE Areas SET Area = ?, Fk_IdSitio = ? WHERE IdArea = ?",
+            (nombre, fk_sitio_val, int(area_id))
+        )
+        conn.commit()
+        conn.close()
+        return {'success': True, 'message': 'Área actualizada correctamente'}
+    except Exception as e:
+        return {'success': False, 'error': str(e)}, 500
+
+
+@config_bp.route('/api/areas/eliminar', methods=['POST'])
+@login_required
+def api_areas_eliminar():
+    """Elimina un área si no tiene personal asociado."""
+    if 'areas.eliminar' not in session.get('permisos', []) and session.get('rol_id') != 1:
+        return {'success': False, 'error': 'Permiso denegado'}, 403
+    area_id = request.form.get('id', '').strip()
+    if not area_id or not area_id.isdigit():
+        return {'success': False, 'error': 'ID inválido'}
+    try:
+        conn = get_connection()
+        c = conn.cursor()
+        # Verificar si hay personal asociado
+        c.execute("SELECT COUNT(*) FROM Personal WHERE Fk_Area = ?", (int(area_id),))
+        if c.fetchone()[0] > 0:
+            conn.close()
+            return {'success': False, 'error': 'No se puede eliminar el área porque tiene personal asociado'}
+        c.execute("DELETE FROM Areas WHERE IdArea = ?", (int(area_id),))
+        conn.commit()
+        conn.close()
+        return {'success': True, 'message': 'Área eliminada correctamente'}
+    except Exception as e:
+        return {'success': False, 'error': str(e)}, 500

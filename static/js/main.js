@@ -149,13 +149,12 @@ document.addEventListener('DOMContentLoaded', () => {
         fetch('/heartbeat', { method: 'POST' }).catch(() => {});
     }, 2000);
 
-    // ── Cerrar sesión al cerrar el navegador ──
-    // Cuando la pestaña se oculta (cierre real o cambio de pestaña),
-    // enviamos un heartbeat extra. Si TODAS las pestañas se cierran,
-    // el heartbeat deja de llegar y el servidor se apaga en 10s.
+    // ── Heartbeat extra al ocultar la pestaña ──
+    // Cuando cambias de pestaña/envías a bg, envía un heartbeat adicional
+    // para que el servidor no se apague mientras miras otra cosa.
+    // El servidor se apagará solo tras 60 min sin heartbeat (navegador cerrado).
     document.addEventListener('visibilitychange', function() {
         if (document.hidden) {
-            // Enviar heartbeat final via sendBeacon (funciona en unload)
             navigator.sendBeacon('/heartbeat', '');
         }
     });

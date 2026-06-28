@@ -29,6 +29,7 @@
                     <th>C&eacute;dula</th>
                     <th>Tel&eacute;fono</th>
                     <th>Estatus</th>
+                    <th>Área</th>
                     <th>Acciones</th>
                 </tr>
             </thead>
@@ -61,13 +62,13 @@
 
     function loadTable() {
         var tbody = document.getElementById('personalTableBody');
-        tbody.innerHTML = '<tr><td colspan="7" class="table-loading"><div class="spinner"></div></td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" class="table-loading"><div class="spinner"></div></td></tr>';
 
         fetch('/personal/data?page=' + state.page + '&search=' + encodeURIComponent(state.search))
             .then(function(r) { return r.json(); })
             .then(function(data) { renderTable(data); renderPagination(data); })
             .catch(function(err) {
-                tbody.innerHTML = '<tr><td colspan="7" class="table-empty"><i class="fa-solid fa-exclamation-triangle"></i><p>Error al cargar datos</p></td></tr>';
+                tbody.innerHTML = '<tr><td colspan="8" class="table-empty"><i class="fa-solid fa-exclamation-triangle"></i><p>Error al cargar datos</p></td></tr>';
                 console.error(err);
             });
     }
@@ -77,7 +78,7 @@
         var rows = data.data;
 
         if (!rows || rows.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="7" class="table-empty"><i class="fa-solid fa-address-book"></i><p>No se encontraron registros de personal</p></td></tr>';
+            tbody.innerHTML = '<tr><td colspan="8" class="table-empty"><i class="fa-solid fa-address-book"></i><p>No se encontraron registros de personal</p></td></tr>';
             return;
         }
 
@@ -109,6 +110,7 @@
                 '<td>' + escapeHtml(p.cedula) + '</td>' +
                 '<td>' + escapeHtml(p.telefono) + '</td>' +
                 '<td><span class="status-badge ' + estatusClass + '"><span class="status-dot ' + estatusClass + '"></span> ' + escapeHtml(estatusText) + '</span></td>' +
+                '<td>' + escapeHtml(p.area) + '</td>' +
                 '<td>' + acciones + '</td>' +
                 '</tr>';
         });

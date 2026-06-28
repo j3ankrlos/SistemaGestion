@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistema Porcino</title>
+    <title>Sistema de Gestión</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='fonts/inter.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <!-- Font Awesome para iconos -->
@@ -13,7 +13,7 @@
 <body>
     <aside class="sidebar">
         <div class="sidebar-header">
-            <i class="fa-solid fa-piggy-bank"></i> <span>Sistema Porcino</span>
+            <i class="fa-solid fa-chart-line"></i> <span>Sistema de Gestión</span>
         </div>
         <ul class="nav-links">
             <li>
@@ -58,7 +58,7 @@
 
             {% set tiene_modulo_personal = 'personal.ver' in session.get('permisos', []) %}
             {% if tiene_modulo_personal %}
-            {% set submenu_personal_activo = (request.endpoint and (request.endpoint.startswith('personal') or request.endpoint.startswith('incidencias'))) %}
+            {% set submenu_personal_activo = (request.endpoint and (request.endpoint.startswith('personal') or request.endpoint.startswith('incidencias') or request.endpoint.startswith('asistencias'))) %}
             <li class="nav-item has-submenu">
                 <a href="#" class="submenu-toggle {% if submenu_personal_activo %}expanded{% endif %}" data-target="submenuPersonal">
                     <i class="fa-solid fa-address-book"></i> <span>RRHH</span>
@@ -77,6 +77,26 @@
                         <a href="{{ url_for('incidencias.index') }}" class="{% if request.endpoint and request.endpoint.startswith('incidencias') %}active{% endif %}">
                             <i class="fa-solid fa-triangle-exclamation"></i> <span>Incidencias</span>
                         </a>
+                    </li>
+                    {% endif %}
+                    {% if 'asistencias.ver' in session.get('permisos', []) %}
+                    <li class="nav-item has-submenu" style="width:100%;">
+                        <a href="#" class="submenu-toggle {% if request.endpoint and request.endpoint.startswith('asistencias') %}expanded{% endif %}" data-target="submenuAsistencias" style="padding:8px 16px 8px 44px; font-size:0.85rem;">
+                            <i class="fa-solid fa-clipboard-check"></i> <span>Asistencias</span>
+                            <i class="fa-solid fa-chevron-down submenu-arrow" style="right:12px;"></i>
+                        </a>
+                        <ul class="submenu {% if request.endpoint and request.endpoint.startswith('asistencias') %}expanded{% endif %}" id="submenuAsistencias" style="padding-left:0;">
+                            <li>
+                                <a href="{{ url_for('asistencias.index') }}" class="{% if request.endpoint == 'asistencias.index' %}active{% endif %}" style="padding-left:60px;">
+                                    <i class="fa-solid fa-pen-to-square"></i> <span>Registro Diario</span>
+                                </a>
+                            </li>
+                            <li>
+                                <a href="{{ url_for('asistencias.historial') }}" class="{% if request.endpoint == 'asistencias.historial' %}active{% endif %}" style="padding-left:60px;">
+                                    <i class="fa-solid fa-clock-rotate-left"></i> <span>Historial de Asistencia</span>
+                                </a>
+                            </li>
+                        </ul>
                     </li>
                     {% endif %}
                 </ul>
@@ -102,6 +122,11 @@
                         <li>
                             <a href="{{ url_for('config.admin_tipos_incidencias') }}" class="{% if request.endpoint == 'config.admin_tipos_incidencias' %}active{% endif %}">
                                 <i class="fa-solid fa-triangle-exclamation"></i> <span>Tipos de Incidencia</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{ url_for('config.admin_areas') }}" class="{% if request.endpoint == 'config.admin_areas' %}active{% endif %}">
+                                <i class="fa-solid fa-layer-group"></i> <span>Áreas</span>
                             </a>
                         </li>
                     </ul>

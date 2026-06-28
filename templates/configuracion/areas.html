@@ -1,0 +1,333 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="card catalog-section" style="max-width:800px; margin:0 auto;">
+    <div class="card-header">
+        <h3><i class="fa-solid fa-layer-group"></i> Administrar Áreas</h3>
+    </div>
+    <p style="color:var(--text-secondary); margin-bottom:20px; font-size:0.9rem;">
+        Gestiona las áreas de trabajo del personal. Cada área puede estar asociada a un sitio.
+    </p>
+
+    {% if 'areas.crear' in session.get('permisos', []) %}
+    <form id="formNuevaArea" class="catalog-form">
+        <div class="catalog-form-row">
+            <div class="form-group" style="flex:1;">
+                <label for="nuevaAreaNombre">Nombre del Área</label>
+                <input type="text" class="form-control" id="nuevaAreaNombre" placeholder="Ej: MATERNIDAD" required>
+            </div>
+            <div class="form-group" style="flex:0 0 180px;">
+                <label for="nuevaAreaSitio">Sitio</label>
+                <select class="form-control" id="nuevaAreaSitio">
+                    <option value="">— Sin sitio —</option>
+                </select>
+            </div>
+            <div class="form-group catalog-btn-wrap">
+                <label>&nbsp;</label>
+                <button type="submit" class="btn btn-primary btn-sm">
+                    <i class="fa-solid fa-plus"></i> Agregar
+                </button>
+            </div>
+        </div>
+    </form>
+    {% endif %}
+
+    <div class="table-responsive">
+        <table class="table" id="tablaAreas">
+            <thead>
+                <tr>
+                    <th style="width:50px;">#</th>
+                    <th>Nombre</th>
+                    <th style="width:150px;">Sitio</th>
+                    <th style="width:140px;">Acción</th>
+                </tr>
+            </thead>
+            <tbody id="areasBody">
+                <tr><td colspan="4" class="table-loading"><div class="spinner"></div></td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Modal: Editar Área -->
+<div class="modal-overlay" id="modalEditarArea" style="display:none;">
+    <div class="modal-content modal-md">
+        <div class="modal-header">
+            <h3><i class="fa-solid fa-pen"></i> Editar Área</h3>
+            <button class="modal-close" id="modalEditarClose">&times;</button>
+        </div>
+        <form id="formEditarArea" autocomplete="off">
+            <div class="modal-body">
+                <input type="hidden" id="editarId" value="">
+                <div class="form-group">
+                    <label for="editarNombre">Nombre</label>
+                    <input type="text" class="form-control" id="editarNombre" placeholder="Nombre del área" required>
+                </div>
+                <div class="form-group">
+                    <label for="editarSitio">Sitio</label>
+                    <select class="form-control" id="editarSitio">
+                        <option value="">— Sin sitio —</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" id="btnCancelarEditar">Cancelar</button>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fa-solid fa-check"></i> Guardar Cambios
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+    'use strict';
+
+    function escapeHtml(text) {
+        if (!text) return '';
+        var d = document.createElement('div');
+        d.textContent = text;
+        return d.innerHTML;
+    }
+
+    // ─── Cargar sitios en selects ───
+    function cargarSitios(selectId, selectedId) {
+        var sel = document.getElementById(selectId);
+        if (!sel) return;
+        fetch('/config/api/sitios')
+            .then(function(r) { return r.json(); })
+            .then(function(resp) {
+                if (!resp.success) return;
+                sel.innerHTML = '<option value="">— Sin sitio —</option>';
+                resp.data.forEach(function(s) {
+                    var opt = document.createElement('option');
+                    opt.value = s.id;
+                    opt.textContent = s.sitio;
+                    if (selectedId && s.id == selectedId) opt.selected = true;
+                    sel.appendChild(opt);
+                });
+            })
+            .catch(function() {});
+    }
+
+    // ─── Cargar áreas ───
+    function loadAreas() {
+        var tbody = document.getElementById('areasBody');
+        if (!tbody) return;
+        tbody.innerHTML = '<tr><td colspan="4" class="table-loading"><div class="spinner"></div></td></tr>';
+
+        fetch('/config/api/areas')
+            .then(function(r) { return r.json(); })
+            .then(function(resp) {
+                if (!resp.success || !resp.data || resp.data.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="4" class="table-empty"><i class="fa-solid fa-inbox"></i> No hay áreas registradas</td></tr>';
+                    return;
+                }
+                var html = '';
+                resp.data.forEach(function(a) {
+                    var tienePermisoEditar = {{ 'true' if 'areas.editar' in session.get('permisos', []) else 'false' }};
+                    var tienePermisoEliminar = {{ 'true' if 'areas.eliminar' in session.get('permisos', []) else 'false' }};
+                    var btnEditar = tienePermisoEditar
+                        ? '<button class="btn btn-edit btn-editar-area" data-id="' + a.id + '" data-nombre="' + escapeHtml(a.area) + '" data-sitio="' + (a.fk_sitio || '') + '"><i class="fa-solid fa-pen"></i></button>'
+                        : '';
+                    var btnEliminar = tienePermisoEliminar
+                        ? '<button class="btn btn-sm btn-danger btn-eliminar-area" data-id="' + a.id + '" data-nombre="' + escapeHtml(a.area) + '"><i class="fa-solid fa-trash-can"></i></button>'
+                        : '';
+                    html += '<tr>' +
+                        '<td>' + a.id + '</td>' +
+                        '<td>' + escapeHtml(a.area) + '</td>' +
+                        '<td>' + escapeHtml(a.sitio) + '</td>' +
+                        '<td class="actions-cell">' + btnEditar + ' ' + btnEliminar + '</td>' +
+                        '</tr>';
+                });
+                tbody.innerHTML = html;
+            })
+            .catch(function() {
+                tbody.innerHTML = '<tr><td colspan="4" class="table-empty"><i class="fa-solid fa-exclamation-triangle"></i> Error al cargar</td></tr>';
+            });
+    }
+
+    // ─── Modal helpers ───
+    function openModal(id) {
+        document.getElementById(id).style.display = 'flex';
+    }
+    function closeModal(id) {
+        document.getElementById(id).style.display = 'none';
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        // Cargar sitios en selects del formulario nuevo y edición
+        cargarSitios('nuevaAreaSitio');
+        cargarSitios('editarSitio');
+
+        loadAreas();
+
+        // ─── Submit nueva área ───
+        var formNueva = document.getElementById('formNuevaArea');
+        if (formNueva) {
+            formNueva.addEventListener('submit', function(e) {
+                e.preventDefault();
+                var nombre = document.getElementById('nuevaAreaNombre').value.trim();
+                var fk_sitio = document.getElementById('nuevaAreaSitio').value;
+                if (!nombre) return;
+
+                var data = new URLSearchParams();
+                data.set('nombre', nombre);
+                data.set('fk_sitio', fk_sitio);
+
+                fetch('/config/api/areas/crear', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                    body: data.toString()
+                })
+                .then(function(r) { return r.json(); })
+                .then(function(resp) {
+                    if (resp.success) {
+                        formNueva.reset();
+                        loadAreas();
+                        if (typeof Swal !== 'undefined') {
+                            Swal.fire({icon:'success', title:'Creado', text:resp.message, timer:1500, showConfirmButton:false});
+                        }
+                    } else {
+                        if (typeof Swal !== 'undefined') {
+                            Swal.fire({icon:'error', title:'Error', text:resp.error});
+                        }
+                    }
+                })
+                .catch(function() {
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({icon:'error', title:'Error', text:'Error de conexión'});
+                    }
+                });
+            });
+        }
+
+        // ─── Editar área ───
+        function setupEditModal() {
+            var tabla = document.getElementById('tablaAreas');
+            if (!tabla) return;
+
+            tabla.addEventListener('click', function(e) {
+                var btn = e.target.closest('.btn-editar-area');
+                if (!btn) return;
+
+                var id = btn.getAttribute('data-id');
+                var nombre = btn.getAttribute('data-nombre');
+                var sitio = btn.getAttribute('data-sitio');
+
+                document.getElementById('editarId').value = id;
+                document.getElementById('editarNombre').value = nombre;
+                // Recargar sitios y seleccionar el correspondiente
+                cargarSitios('editarSitio', sitio);
+                openModal('modalEditarArea');
+            });
+        }
+        setupEditModal();
+
+        // ─── Cerrar modal editar ───
+        document.getElementById('modalEditarClose').addEventListener('click', function() {
+            closeModal('modalEditarArea');
+        });
+        document.getElementById('btnCancelarEditar').addEventListener('click', function() {
+            closeModal('modalEditarArea');
+        });
+        document.getElementById('modalEditarArea').addEventListener('click', function(e) {
+            if (e.target === this) closeModal('modalEditarArea');
+        });
+
+        // ─── Submit editar área ───
+        document.getElementById('formEditarArea').addEventListener('submit', function(e) {
+            e.preventDefault();
+            var id = document.getElementById('editarId').value;
+            var nombre = document.getElementById('editarNombre').value.trim();
+            var fk_sitio = document.getElementById('editarSitio').value;
+            if (!id || !nombre) return;
+
+            var data = new URLSearchParams();
+            data.set('id', id);
+            data.set('nombre', nombre);
+            data.set('fk_sitio', fk_sitio);
+
+            fetch('/config/api/areas/editar', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                body: data.toString()
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(resp) {
+                if (resp.success) {
+                    closeModal('modalEditarArea');
+                    loadAreas();
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({icon:'success', title:'Actualizado', text:resp.message, timer:1500, showConfirmButton:false});
+                    }
+                } else {
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({icon:'error', title:'Error', text:resp.error});
+                    }
+                }
+            })
+            .catch(function() {
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({icon:'error', title:'Error', text:'Error de conexión'});
+                }
+            });
+        });
+
+        // ─── Eliminar área ───
+        function setupDelete() {
+            var tabla = document.getElementById('tablaAreas');
+            if (!tabla) return;
+
+            tabla.addEventListener('click', function(e) {
+                var btn = e.target.closest('.btn-eliminar-area');
+                if (!btn) return;
+
+                var id = btn.getAttribute('data-id');
+                var nombre = btn.getAttribute('data-nombre');
+
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: '¿Eliminar área?',
+                        text: 'Se eliminará "' + nombre + '". Esta acción no se puede deshacer.',
+                        showCancelButton: true,
+                        confirmButtonColor: '#d33',
+                        cancelButtonColor: '#6c757d',
+                        confirmButtonText: 'Sí, eliminar',
+                        cancelButtonText: 'Cancelar'
+                    }).then(function(result) {
+                        if (!result.isConfirmed) return;
+
+                        var data = new URLSearchParams();
+                        data.set('id', id);
+
+                        fetch('/config/api/areas/eliminar', {
+                            method: 'POST',
+                            headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                            body: data.toString()
+                        })
+                        .then(function(r) { return r.json(); })
+                        .then(function(resp) {
+                            if (resp.success) {
+                                loadAreas();
+                                Swal.fire({icon:'success', title:'Eliminado', text:resp.message, timer:1500, showConfirmButton:false});
+                            } else {
+                                Swal.fire({icon:'error', title:'Error', text:resp.error});
+                            }
+                        })
+                        .catch(function() {
+                            Swal.fire({icon:'error', title:'Error', text:'Error de conexión'});
+                        });
+                    });
+                }
+            });
+        }
+        setupDelete();
+    });
+})();
+</script>
+{% endblock %}

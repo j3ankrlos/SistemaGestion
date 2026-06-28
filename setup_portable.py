@@ -1,6 +1,6 @@
 """
 ╔══════════════════════════════════════════════════════════╗
-║   SISTEMA PORCINO - Setup Portable                      ║
+║   SISTEMA DE GESTIÓN - Setup Portable                 ║
 ║   Prepara el entorno sin permisos de administrador      ║
 ╚══════════════════════════════════════════════════════════╝
 
@@ -332,7 +332,7 @@ def create_portable_launcher():
 
     # Contenido del script PowerShell
     ps1_content = r"""# ╔══════════════════════════════════════════╗
-# ║   SISTEMA PORCINO - Launcher Portable   ║
+# ║   SISTEMA DE GESTIÓN - Launcher Portable   ║
 # ║   NO requiere permisos de administrador ║
 # ╚══════════════════════════════════════════╝
 
@@ -359,7 +359,7 @@ if (-not (Test-Path $AppPy)) {
 # 3. Iniciar servidor
 Write-Host ""
 Write-Host "╔══════════════════════════════════════════╗" -ForegroundColor Cyan
-Write-Host "║     SISTEMA PORCINO - Gestión           ║" -ForegroundColor Cyan
+Write-Host "║     SISTEMA DE GESTIÓN                    ║" -ForegroundColor Cyan
 Write-Host "╠══════════════════════════════════════════╣" -ForegroundColor Cyan
 Write-Host "║  Iniciando servidor...                  ║" -ForegroundColor Cyan
 Write-Host "╚══════════════════════════════════════════╝" -ForegroundColor Cyan

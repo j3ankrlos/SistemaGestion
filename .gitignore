@@ -19,3 +19,7 @@ config.json
 # ── OS ──
 Thumbs.db
 .DS_Store
+
+# ---- Archivos temporales de pruebas ----
+vbs_test*.log
+_explorar_tablas.py

@@ -19,6 +19,13 @@ def _get_form_data():
     cargos = execute_query("SELECT * FROM Cargos ORDER BY 2", fetchall=True) or []
     turnos = execute_query("SELECT * FROM Turnos ORDER BY 2", fetchall=True) or []
     centros_costo = execute_query("SELECT * FROM CentrosCostos ORDER BY 2", fetchall=True) or []
+    # Áreas: filtrar por sitio si no es SuperAdmin
+    is_admin = session.get('rol_id') == 1
+    user_sitio = session.get('fk_sitio', 0)
+    if is_admin or not user_sitio:
+        areas = execute_query("SELECT IdArea, Area FROM Areas ORDER BY Area", fetchall=True) or []
+    else:
+        areas = execute_query("SELECT IdArea, Area FROM Areas WHERE Fk_IdSitio = ? ORDER BY Area", (user_sitio,), fetchall=True) or []
     return {
         'tipo_nomina': tipo_nomina,
         'estatus_actual': estatus_actual,
@@ -27,6 +34,7 @@ def _get_form_data():
         'cargos': cargos,
         'turnos': turnos,
         'centros_costo': centros_costo,
+        'areas': areas,
     }
 
 
@@ -51,15 +59,26 @@ def get_personal_data():
     search = request.args.get('search', '', type=str)
     per_page = PER_PAGE
 
+    is_admin = session.get('rol_id') == 1
+    user_sitio = session.get('fk_sitio', 0)
+
     base_query = " FROM Personal p"
-    where = ""
-    params = ()
+    where_conditions = []
+    params = []
+
+    # Si no es SuperAdmin, filtrar por sitio vía subconsulta a CentrosCostos
+    if not is_admin and user_sitio:
+        where_conditions.append("p.Fk_IdCentroCosto IN (SELECT IdCentroCosto FROM CentrosCostos WHERE Fk_IdSitio = ?)")
+        params.append(user_sitio)
 
     if search:
-        where = """ WHERE p.Nombres LIKE ? OR p.Apellidos LIKE ? OR p.Cedula LIKE ?
-                    OR p.NumeroFicha LIKE ?"""
+        where_conditions.append("""(p.Nombres LIKE ? OR p.Apellidos LIKE ? OR p.Cedula LIKE ?
+                    OR p.NumeroFicha LIKE ?)""")
         s = f'%{search}%'
-        params = (s, s, s, s)
+        params.extend([s, s, s, s])
+
+    where = " WHERE " + " AND ".join(where_conditions) if where_conditions else ""
+    params = tuple(params) if params else ()
 
     # Total
     count_row = execute_query("SELECT COUNT(*)" + base_query + where, params, fetchone=True)
@@ -71,11 +90,13 @@ def get_personal_data():
     select_query = ("SELECT p.IdPersonal, p.Nombres, p.Apellidos, p.Cedula, "
                     "p.NumeroFicha, p.FechaIngreso, "
                     "tn.Nomina AS TipoNomina, ea.EstatusA AS EstatusDesc, tc.Contrato AS ContratoDesc, "
-                    "p.FK_IdTipoNomina, p.FK_IdEstatusActual, p.FK_IdTipoContrato "
-                    "FROM ((Personal p "
+                    "p.FK_IdTipoNomina, p.FK_IdEstatusActual, p.FK_IdTipoContrato, "
+                    "a.Area AS AreaTrabajo "
+                    "FROM (((Personal p "
                     "LEFT JOIN TipoNomina tn ON p.FK_IdTipoNomina = tn.IdTipoNomina) "
                     "LEFT JOIN EstatusActual ea ON p.FK_IdEstatusActual = ea.IdEstatusA) "
-                    "LEFT JOIN TipoContrato tc ON p.FK_IdTipoContrato = tc.IdTipoContrato "
+                    "LEFT JOIN TipoContrato tc ON p.FK_IdTipoContrato = tc.IdTipoContrato) "
+                    "LEFT JOIN Areas a ON p.Fk_Area = a.IdArea "
                     + where
                     + " ORDER BY p.IdPersonal")
 
@@ -99,6 +120,7 @@ def get_personal_data():
             'tipo_nomina': r[6] or '',
             'estatus': r[7] or '',
             'tipo_contrato': r[8] or '',
+            'area': r[12] or '',
         })
 
     return jsonify({
@@ -158,6 +180,7 @@ def crear():
         id_cargo = request.form.get('id_cargo', type=int)
         id_turno = request.form.get('id_turno', type=int)
         id_centro_costo = request.form.get('id_centro_costo', type=int)
+        id_area = request.form.get('id_area', type=int)
 
         # Datos de Direcciones
         telefono_fijo = request.form.get('telefono_fijo', '').strip()
@@ -194,13 +217,13 @@ def crear():
                     FechaIngreso, NumeroFicha,
                     FK_IdParroquiaR, Fk_IdTipoNomina, FK_IdCargo, FK_IdTurno,
                     FK_IdEstatusActual, FK_IdTipoContrato, Fk_IdCentroCosto,
-                    FechaRegistro, Fk_IdUsuario)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    Fk_Area, FechaRegistro, Fk_IdUsuario)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                 (nombres, apellidos, cedula,
                  fecha_obj, num_ficha,
                  id_parroquia_dir, id_tipo_nomina, id_cargo, id_turno,
                  id_estatus, id_contrato, id_centro_costo,
-                 datetime.now(), session.get('usuario_id'))
+                 id_area, datetime.now(), session.get('usuario_id'))
             )
             conn.commit()
 
@@ -268,6 +291,7 @@ def editar(id):
         id_cargo = request.form.get('id_cargo', type=int)
         id_turno = request.form.get('id_turno', type=int)
         id_centro_costo = request.form.get('id_centro_costo', type=int)
+        id_area = request.form.get('id_area', type=int)
 
         # Datos de Direcciones
         telefono_fijo = request.form.get('telefono_fijo', '').strip()
@@ -298,12 +322,14 @@ def editar(id):
                     Nombres=?, Apellidos=?, Cedula=?,
                     FechaIngreso=?, NumeroFicha=?,
                     FK_IdParroquiaR=?, Fk_IdTipoNomina=?, FK_IdCargo=?, FK_IdTurno=?,
-                    FK_IdEstatusActual=?, FK_IdTipoContrato=?, Fk_IdCentroCosto=?
+                    FK_IdEstatusActual=?, FK_IdTipoContrato=?, Fk_IdCentroCosto=?,
+                    Fk_Area=?
                    WHERE IdPersonal=?""",
                 (nombres, apellidos, cedula,
                  fecha_obj, num_ficha,
                  id_parroquia_dir, id_tipo_nomina, id_cargo, id_turno,
                  id_estatus, id_contrato, id_centro_costo,
+                 id_area,
                  id)
             )
             conn.commit()
@@ -386,7 +412,8 @@ def editar(id):
                   d.TelefonoFijo, d.TelefonoMovil, d.Direccion, d.Ciudad,
                   d.Fk_IdEstado, d.Fk_IdMunicipio, d.Fk_IdParroquia,
                   p.FK_IdParroquiaR, p.Fk_IdTipoNomina, p.FK_IdCargo, p.FK_IdTurno,
-                  p.FK_IdEstatusActual, p.FK_IdTipoContrato, p.Fk_IdCentroCosto
+                  p.FK_IdEstatusActual, p.FK_IdTipoContrato, p.Fk_IdCentroCosto,
+                  p.Fk_Area
            FROM Personal p LEFT JOIN Direcciones d ON p.IdPersonal = d.Fk_IdPersonal
            WHERE p.IdPersonal=?""",
         (id,), fetchone=True
@@ -415,6 +442,7 @@ def editar(id):
         'id_estatus': row[17],
         'id_contrato': row[18],
         'id_centro_costo': row[19],
+        'id_area': row[20],
     }
 
     # Cargar datos médicos si existe
@@ -449,14 +477,16 @@ def detalle(id):
                   tn.Nomina, ea.EstatusA, tc.Contrato,
                   c.Cargo, t.Turno, cc.CentroCosto,
                   p.FK_IdCargo, p.FK_IdTipoNomina, p.FK_IdEstatusActual,
-                  p.FK_IdTipoContrato, p.FK_IdTurno, p.Fk_IdCentroCosto
-           FROM ((((((Personal p
+                  p.FK_IdTipoContrato, p.FK_IdTurno, p.Fk_IdCentroCosto,
+                  a.Area
+           FROM (((((((Personal p
            LEFT JOIN TipoNomina tn ON p.FK_IdTipoNomina = tn.IdTipoNomina)
            LEFT JOIN EstatusActual ea ON p.FK_IdEstatusActual = ea.IdEstatusA)
            LEFT JOIN TipoContrato tc ON p.FK_IdTipoContrato = tc.IdTipoContrato)
            LEFT JOIN Cargos c ON p.FK_IdCargo = c.IdCargo)
            LEFT JOIN Turnos t ON p.FK_IdTurno = t.IdTurno)
            LEFT JOIN CentrosCostos cc ON p.Fk_IdCentroCosto = cc.IdCentroCosto)
+           LEFT JOIN Areas a ON p.Fk_Area = a.IdArea)
            WHERE p.IdPersonal=?""",
         (id,), fetchone=True
     )
@@ -489,6 +519,7 @@ def detalle(id):
         'cargo': row[9] or '',
         'turno': row[10] or '',
         'centro_costo': row[11] or '',
+        'area': row[18] or '',
         'id_cargo': row[12],
         'telefono_fijo': dir_row[0] or '' if dir_row else '',
         'telefono_movil': dir_row[1] or '' if dir_row else '',

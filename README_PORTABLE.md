@@ -1,4 +1,4 @@
-# Sistema Porcino — Guía de Instalación Portable
+# Sistema de Gestión — Guía de Instalación Portable
 
 > **Sin permisos de administrador · Sin internet en la PC destino**
 
@@ -116,4 +116,4 @@ SistemaPorcino\
 
 ---
 
-*Sistema Porcino — Instalación portable sin admin*
+*Sistema de Gestión — Instalación portable sin admin*

@@ -1,16 +1,16 @@
 @echo off
-title Descargar Paquetes - Sistema Porcino
+title Descargar Paquetes - Sistema de Gestión
 cd /d "%~dp0"
 
 :: ═══════════════════════════════════════════════════════
-::  SISTEMA PORCINO - Descargar paquetes para uso offline
+::  SISTEMA DE GESTIÓN - Descargar paquetes para uso offline
 ::  Ejecutar este script UNA SOLA VEZ en la PC con internet
 ::  Luego copiar toda la carpeta del proyecto a la otra PC
 :: ═══════════════════════════════════════════════════════
 
 echo.
 echo =============================================
-echo   SISTEMA PORCINO - Descarga Offline
+echo   SISTEMA DE GESTIÓN - Descarga Offline
 echo =============================================
 echo.
 echo Este script descarga todos los paquetes Python

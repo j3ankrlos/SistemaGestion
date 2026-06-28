@@ -1,0 +1,389 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title">
+            <i class="fa-solid fa-clock-rotate-left"></i> Historial de Asistencias
+        </h1>
+        <p class="page-subtitle">Consulta el registro histórico de asistencias del personal</p>
+    </div>
+</div>
+
+<!-- Filtros -->
+<div class="filters-bar">
+    <div class="filter-group" style="flex:1; min-width:150px;">
+        <label for="histArea" class="filter-label">Área de Trabajo</label>
+        <select id="histArea" class="form-control">
+            <option value="">Todas las áreas</option>
+            {% for a in areas %}
+            <option value="{{ a[0] }}">{{ a[1] }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="filter-group" style="max-width:180px;">
+        <label for="histDesde" class="filter-label">Desde</label>
+        <input type="date" id="histDesde" class="form-control" placeholder="Desde">
+    </div>
+    <div class="filter-group" style="max-width:180px;">
+        <label for="histHasta" class="filter-label">Hasta</label>
+        <input type="date" id="histHasta" class="form-control" placeholder="Hasta">
+    </div>
+    <div class="filter-group" style="align-self:flex-end;">
+        <button id="btnFiltrarHist" class="btn btn-primary btn-icon">
+            <i class="fa-solid fa-filter"></i> Filtrar
+        </button>
+    </div>
+</div>
+
+<!-- Tabla de Historial -->
+<div class="card" style="margin-top:20px;">
+    <div class="card-header">
+        <h3><i class="fa-solid fa-list"></i> Registros de Asistencia</h3>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover" id="historialTable">
+            <thead>
+                <tr>
+                    <th>Fecha</th>
+                    <th>Personal</th>
+                    <th>Cédula</th>
+                    <th>Área</th>
+                    <th>Estado</th>
+                    <th>Incidencia</th>
+                    <th>Observación</th>
+                    <th>Registrado por</th>
+                    <th style="width:80px;">Acción</th>
+                </tr>
+            </thead>
+            <tbody id="histBody">
+                <tr><td colspan="8" class="table-loading"><p>Seleccione filtros y presione "Filtrar"</p></td></tr>
+            </tbody>
+        </table>
+    </div>
+    <div class="pagination-wrapper" id="histPagination" style="display:none; padding:12px 20px;">
+        <div class="pagination-info" id="histPaginationInfo"></div>
+        <div class="pagination-controls" id="histPaginationControls"></div>
+    </div>
+</div>
+
+<!-- Modal: Editar Asistencia -->
+<div class="modal-overlay" id="modalEditarAsistencia" style="display:none;">
+    <div class="modal-content modal-sm">
+        <div class="modal-header">
+            <h3><i class="fa-solid fa-pen-to-square"></i> Editar Asistencia</h3>
+            <button class="modal-close" id="modalEditarClose">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p style="margin-bottom:12px; color:var(--text-secondary);">
+                <strong id="modalEditarPersonal"></strong>
+                <span id="modalEditarFecha" style="margin-left:12px; color:var(--text-muted);"></span>
+            </p>
+            <div class="form-group">
+                <label for="editEstado">Estado</label>
+                <select id="editEstado" class="form-control">
+                    <option value="Asistente">Asistente</option>
+                    <option value="Dia Libre">Día Libre</option>
+                    <option value="Incidencia">Incidencia</option>
+                </select>
+            </div>
+            <div class="form-group" id="editIncidenciaGroup" style="display:none;">
+                <label for="editIncidencia">Tipo de Incidencia</label>
+                <select id="editIncidencia" class="form-control">
+                    <option value="">Seleccione...</option>
+                    {% for t in tipos_incidencias %}
+                    <option value="{{ t[0] }}">{{ t[1] }} ({{ t[2] }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="editObservacion">Observación</label>
+                <textarea id="editObservacion" class="form-control" rows="2" placeholder="Observación opcional..."></textarea>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button id="btnEditarCancelar" class="btn btn-secondary">Cancelar</button>
+            <button id="btnEditarGuardar" class="btn btn-primary">
+                <i class="fa-solid fa-floppy-disk"></i> Guardar Cambios
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+<div class="modal-overlay" id="modalEditarAsistencia" style="display:none;">
+    <div class="modal-content modal-sm">
+        <div class="modal-header">
+            <h3><i class="fa-solid fa-pen-to-square"></i> Editar Asistencia</h3>
+            <button class="modal-close" id="modalEditarClose">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p style="margin-bottom:12px; color:var(--text-secondary);">
+                <strong id="modalEditarPersonal"></strong>
+                <span id="modalEditarFecha" style="margin-left:12px; color:var(--text-muted);"></span>
+            </p>
+            <div class="form-group">
+                <label for="editEstado">Estado</label>
+                <select id="editEstado" class="form-control">
+                    <option value="Asistente">Asistente</option>
+                    <option value="Dia Libre">Día Libre</option>
+                    <option value="Incidencia">Incidencia</option>
+                </select>
+            </div>
+            <div class="form-group" id="editIncidenciaGroup" style="display:none;">
+                <label for="editIncidencia">Tipo de Incidencia</label>
+                <select id="editIncidencia" class="form-control">
+                    <option value="">Seleccione...</option>
+                    {% for t in tipos_incidencias %}
+                    <option value="{{ t[0] }}">{{ t[1] }} ({{ t[2] }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="editObservacion">Observación</label>
+                <textarea id="editObservacion" class="form-control" rows="2" placeholder="Observación opcional..."></textarea>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button id="btnEditarCancelar" class="btn btn-secondary">Cancelar</button>
+            <button id="btnEditarGuardar" class="btn btn-primary">
+                <i class="fa-solid fa-floppy-disk"></i> Guardar Cambios
+            </button>
+        </div>
+    </div>
+</div>
+
+{% block scripts %}
+<script>
+(function() {
+    var histState = { page: 1, totalPages: 1 };
+    var editRecord = null;  // registro siendo editado
+    var puedeEditar = {{ 'true' if 'asistencias.registrar' in session.get('permisos', []) else 'false' }};
+
+    function showToast(icon, title) {
+        Swal.fire({ toast:true, position:'top-end', icon:icon, title:title,
+            showConfirmButton:false, timer:3000, timerProgressBar:true,
+            background:'#1a1714', color:'#e8ddd0' });
+    }
+
+    function escapeHtml(text) {
+        if (!text) return '';
+        var d = document.createElement('div');
+        d.textContent = text;
+        return d.innerHTML;
+    }
+
+    function cargarHistorial() {
+        var area = document.getElementById('histArea').value;
+        var desde = document.getElementById('histDesde').value;
+        var hasta = document.getElementById('histHasta').value;
+
+        var params = '?page=' + histState.page;
+        if (area) params += '&area=' + area;
+        if (desde) params += '&desde=' + desde;
+        if (hasta) params += '&hasta=' + hasta;
+
+        var tbody = document.getElementById('histBody');
+        tbody.innerHTML = '<tr><td colspan="9" class="table-loading"><div class="spinner"></div><p>Cargando historial...</p></td></tr>';
+
+        fetch('/asistencias/api/historial' + params)
+            .then(function(r) { return r.json(); })
+            .then(function(resp) {
+                if (resp.success) {
+                    renderHistorial(resp);
+                } else {
+                    tbody.innerHTML = '<tr><td colspan="9" class="table-empty"><p>Error al cargar historial</p></td></tr>';
+                }
+            })
+            .catch(function() {
+                tbody.innerHTML = '<tr><td colspan="9" class="table-empty"><p>Error de conexión</p></td></tr>';
+            });
+    }
+
+    function renderHistorial(resp) {
+        var tbody = document.getElementById('histBody');
+        var data = resp.data || [];
+        histState.page = resp.page;
+        histState.totalPages = resp.total_pages;
+
+        if (data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="9" class="table-empty"><i class="fa-solid fa-calendar-xmark"></i><p>No se encontraron registros</p></td></tr>';
+            document.getElementById('histPagination').style.display = 'none';
+            return;
+        }
+
+        var html = '';
+        data.forEach(function(r) {
+            var estadoClass = r.estado === 'Asistente' ? 'badge-success' :
+                            (r.estado === 'Dia Libre' ? 'badge-warning' : 'badge-danger');
+            var estadoIcon = r.estado === 'Asistente' ? '<i class="fa-solid fa-check-circle"></i>' :
+                            (r.estado === 'Dia Libre' ? '<i class="fa-solid fa-sun"></i>' :
+                            '<i class="fa-solid fa-triangle-exclamation"></i>');
+            var estadoText = r.estado === 'Asistente' ? 'Asistente' :
+                            (r.estado === 'Dia Libre' ? 'Día Libre' : (r.sigla || r.incidencia || 'Incidencia'));
+
+            var editBtn = '';
+            if (puedeEditar) {
+                editBtn = '<button class="btn btn-sm btn-outline" onclick="window.__editarAsistencia(' + r.id + ')" title="Editar asistencia">' +
+                            '<i class="fa-solid fa-pen"></i>' +
+                          '</button>';
+            }
+
+            html += '<tr>' +
+                '<td>' + r.fecha + '</td>' +
+                '<td><strong>' + escapeHtml(r.apellidos) + '</strong>, ' + escapeHtml(r.nombres) + '</td>' +
+                '<td>' + escapeHtml(r.cedula) + '</td>' +
+                '<td>' + escapeHtml(r.area) + '</td>' +
+                '<td><span class="badge ' + estadoClass + '">' + estadoIcon + ' ' + estadoText + '</span></td>' +
+                '<td>' + escapeHtml(r.incidencia) + '</td>' +
+                '<td>' + escapeHtml(r.observacion) + '</td>' +
+                '<td>' + escapeHtml(r.registrado_por) + '</td>' +
+                '<td style="text-align:center;">' + editBtn + '</td>' +
+                '</tr>';
+        });
+        tbody.innerHTML = html;
+
+        var wrapper = document.getElementById('histPagination');
+        if (resp.total_pages > 1) {
+            wrapper.style.display = 'flex';
+            renderHistPagination(resp);
+        } else {
+            wrapper.style.display = 'none';
+        }
+    }
+
+    function renderHistPagination(resp) {
+        document.getElementById('histPaginationInfo').textContent =
+            'Página ' + resp.page + ' de ' + resp.total_pages + ' (' + resp.total + ' registros)';
+
+        var controls = document.getElementById('histPaginationControls');
+        var html = '';
+        var prevDisabled = resp.page <= 1 ? 'disabled' : '';
+        html += '<button class="pagination-btn ' + prevDisabled + '" onclick="window.__histGoPage(' + (resp.page - 1) + ')" ' + prevDisabled + '><i class="fa-solid fa-chevron-left"></i></button>';
+
+        for (var i = Math.max(1, resp.page - 2); i <= Math.min(resp.total_pages, resp.page + 2); i++) {
+            html += '<button class="pagination-btn ' + (i === resp.page ? 'active' : '') + '" onclick="window.__histGoPage(' + i + ')">' + i + '</button>';
+        }
+
+        var nextDisabled = resp.page >= resp.total_pages ? 'disabled' : '';
+        html += '<button class="pagination-btn ' + nextDisabled + '" onclick="window.__histGoPage(' + (resp.page + 1) + ')" ' + nextDisabled + '><i class="fa-solid fa-chevron-right"></i></button>';
+        controls.innerHTML = html;
+    }
+
+    window.__histGoPage = function(p) {
+        if (p < 1 || p > histState.totalPages) return;
+        histState.page = p;
+        cargarHistorial();
+    };
+
+    // ─── Editar asistencia ───
+    window.__editarAsistencia = function(id) {
+        // Buscar el registro en los datos ya cargados
+        var data = [];
+        var params = '?page=1&per_page=9999';
+        var area = document.getElementById('histArea').value;
+        var desde = document.getElementById('histDesde').value;
+        var hasta = document.getElementById('histHasta').value;
+        if (area) params += '&area=' + area;
+        if (desde) params += '&desde=' + desde;
+        if (hasta) params += '&hasta=' + hasta;
+
+        fetch('/asistencias/api/historial' + params)
+            .then(function(r) { return r.json(); })
+            .then(function(resp) {
+                if (!resp.success) { showToast('error', 'Error al obtener datos'); return; }
+                var record = null;
+                for (var i = 0; i < resp.data.length; i++) {
+                    if (resp.data[i].id === id) { record = resp.data[i]; break; }
+                }
+                if (!record) { showToast('error', 'Registro no encontrado'); return; }
+
+                editRecord = record;
+                document.getElementById('modalEditarPersonal').textContent =
+                    record.apellidos + ', ' + record.nombres;
+                document.getElementById('modalEditarFecha').textContent =
+                    '(' + record.fecha + ')';
+                document.getElementById('editEstado').value = record.estado;
+                document.getElementById('editIncidencia').value = record.id_incidencia || '';
+                document.getElementById('editObservacion').value = record.observacion || '';
+                document.getElementById('editIncidenciaGroup').style.display =
+                    record.estado === 'Incidencia' ? 'block' : 'none';
+                document.getElementById('modalEditarAsistencia').style.display = 'flex';
+            })
+            .catch(function() {
+                showToast('error', 'Error al obtener datos del registro');
+            });
+    };
+
+    // Mostrar/ocultar combo de incidencia según estado seleccionado
+    document.getElementById('editEstado').addEventListener('change', function() {
+        document.getElementById('editIncidenciaGroup').style.display =
+            this.value === 'Incidencia' ? 'block' : 'none';
+    });
+
+    // Cerrar modal
+    function cerrarModalEditar() {
+        document.getElementById('modalEditarAsistencia').style.display = 'none';
+        editRecord = null;
+    }
+    document.getElementById('modalEditarClose').addEventListener('click', cerrarModalEditar);
+    document.getElementById('btnEditarCancelar').addEventListener('click', cerrarModalEditar);
+
+    // Guardar cambios
+    document.getElementById('btnEditarGuardar').addEventListener('click', function() {
+        if (!editRecord) return;
+
+        var estado = document.getElementById('editEstado').value;
+        var idIncidencia = document.getElementById('editIncidencia').value;
+        var observacion = document.getElementById('editObservacion').value;
+
+        if (estado === 'Incidencia' && !idIncidencia) {
+            showToast('warning', 'Seleccione un tipo de incidencia.');
+            return;
+        }
+
+        var btn = this;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Guardando...';
+
+        fetch('/asistencias/api/actualizar', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                id_asistencia: editRecord.id,
+                estado: estado,
+                id_incidencia: estado === 'Incidencia' ? parseInt(idIncidencia) : null,
+                observacion: observacion
+            })
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(resp) {
+            if (resp.success) {
+                showToast('success', resp.message || 'Asistencia actualizada.');
+                cerrarModalEditar();
+                cargarHistorial();  // recargar tabla
+            } else {
+                showToast('error', resp.error || 'Error al guardar.');
+            }
+        })
+        .catch(function() {
+            showToast('error', 'Error de conexión al guardar.');
+        })
+        .finally(function() {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Guardar Cambios';
+        });
+    });
+
+    document.getElementById('btnFiltrarHist').addEventListener('click', function() {
+        histState.page = 1;
+        cargarHistorial();
+    });
+
+    // Auto-cargar al inicio
+    setTimeout(function() {
+        histState.page = 1;
+        cargarHistorial();
+    }, 300);
+})();
+</script>
+{% endblock %}

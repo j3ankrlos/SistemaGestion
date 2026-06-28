@@ -1,0 +1,466 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title">
+            <i class="fa-solid fa-clipboard-check"></i> Asistencias Diarias
+        </h1>
+        <p class="page-subtitle">Registro de asistencia diaria del personal por área de trabajo</p>
+    </div>
+</div>
+
+<!-- Filtros -->
+<div class="filters-bar">
+    <div class="filter-group" style="flex:1; min-width:200px;">
+        <label for="selArea" class="filter-label">Área de Trabajo</label>
+        <select id="selArea" class="form-control">
+            <option value="">-- Seleccione un área --</option>
+            {% for a in areas %}
+            <option value="{{ a[0] }}">{{ a[1] }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="filter-group" style="max-width:200px;">
+        <label for="fechaAsistencia" class="filter-label">Fecha</label>
+        <div style="display:flex; align-items:center; gap:6px;">
+            <input type="date" id="fechaAsistencia" class="form-control" style="flex:1;">
+            <span id="procesadoIndicator" style="display:none; font-size:1.3rem; color:#22c55e;" title="Asistencia ya procesada">
+                <i class="fa-solid fa-check-circle"></i>
+            </span>
+        </div>
+    </div>
+    <div class="filter-group" style="align-self:flex-end;">
+        <button id="btnCargar" class="btn btn-primary btn-icon">
+            <i class="fa-solid fa-rotate"></i> Cargar Personal
+        </button>
+    </div>
+</div>
+
+<!-- Tabla de Asistencias -->
+<div class="card" style="margin-top:20px;">
+    <div class="card-header">
+        <h3><i class="fa-solid fa-users"></i> <span id="tituloTabla">Personal del Área</span></h3>
+        <div style="display:flex; gap:8px; align-items:center;">
+            <span class="badge badge-info" id="totalPersonal">0</span>
+            {% if 'asistencias.registrar' in session.get('permisos', []) %}
+            <button id="btnGuardar" class="btn btn-success btn-sm btn-icon" disabled>
+                <i class="fa-solid fa-floppy-disk"></i> Registrar Asistencia
+            </button>
+            {% endif %}
+        </div>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover" id="asistenciasTable">
+            <thead>
+                <tr>
+                    <th style="width:50px;">#</th>
+                    <th>Nombres</th>
+                    <th>Apellidos</th>
+                    <th>Cédula</th>
+                    <th>Ficha</th>
+                    <th>Estado</th>
+                    <th style="width:220px;">Acción</th>
+                </tr>
+            </thead>
+            <tbody id="tableBody">
+                <tr>
+                    <td colspan="7" class="table-loading">
+                        <i class="fa-solid fa-hand-point-up" style="font-size:2rem; opacity:0.3; display:block; margin-bottom:8px;"></i>
+                        <p>Seleccione un área y fecha, luego presione "Cargar Personal"</p>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+
+<!-- Modal: Asignar Incidencia -->
+<div class="modal-overlay" id="modalIncidencia" style="display:none;">
+    <div class="modal-content modal-sm">
+        <div class="modal-header">
+            <h3><i class="fa-solid fa-triangle-exclamation"></i> Asignar Incidencia</h3>
+            <button class="modal-close" id="modalIncidenciaClose">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p style="margin-bottom:12px; color:var(--text-secondary);">
+                <strong id="modalIncidenciaPersonal"></strong>
+            </p>
+            <div class="form-group">
+                <label for="selIncidencia">Tipo de Incidencia</label>
+                <select id="selIncidencia" class="form-control">
+                    <option value="">Seleccione...</option>
+                    {% for t in tipos_incidencias %}
+                    <option value="{{ t[0] }}">{{ t[1] }} ({{ t[2] }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-row" style="display:flex; gap:12px;">
+                <div class="form-group" style="flex:1;">
+                    <label for="fechaInicioHI">Fecha Inicio</label>
+                    <input type="date" id="fechaInicioHI" class="form-control">
+                </div>
+                <div class="form-group" style="flex:1;">
+                    <label for="fechaFinHI">Fecha Fin <small style="color:var(--text-muted);">(opcional)</small></label>
+                    <input type="date" id="fechaFinHI" class="form-control">
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="obsIncidencia">Observación</label>
+                <textarea id="obsIncidencia" class="form-control" rows="2" placeholder="Observación opcional..."></textarea>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button id="btnIncidenciaCancelar" class="btn btn-secondary">Cancelar</button>
+            <button id="btnIncidenciaAplicar" class="btn btn-primary">Aplicar</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+    // ─── Estado global ───
+    var state = {
+        personal: [],           // datos del personal cargado
+        fecha: '',
+        idArea: null,
+        histPage: 1,
+        histTotalPages: 1,
+    };
+
+    var modalIncidencia = document.getElementById('modalIncidencia');
+    var modalPersonalId = null;
+
+    function showToast(icon, title) {
+        Swal.fire({ toast:true, position:'top-end', icon:icon, title:title,
+            showConfirmButton:false, timer:3000, timerProgressBar:true,
+            background:'#1a1714', color:'#e8ddd0' });
+    }
+
+    // ─── Fecha actual por defecto ───
+    function getToday() {
+        var d = new Date();
+        return d.getFullYear() + '-' +
+            String(d.getMonth() + 1).padStart(2, '0') + '-' +
+            String(d.getDate()).padStart(2, '0');
+    }
+    document.getElementById('fechaAsistencia').value = getToday();
+
+    // ─── Cargar personal del área ───
+    function cargarPersonal() {
+        var area = document.getElementById('selArea').value;
+        var fecha = document.getElementById('fechaAsistencia').value;
+
+        if (!area) {
+            showToast('warning', 'Seleccione un área de trabajo.');
+            return;
+        }
+
+        state.idArea = parseInt(area);
+        state.fecha = fecha;
+
+        var tbody = document.getElementById('tableBody');
+        tbody.innerHTML = '<tr><td colspan="7" class="table-loading"><div class="spinner"></div><p>Cargando personal...</p></td></tr>';
+
+        fetch('/asistencias/api/personal?area=' + area + '&fecha=' + fecha)
+            .then(function(r) { return r.json(); })
+            .then(function(resp) {
+                if (resp.success) {
+                    state.personal = resp.data;
+                    renderTablaPersonal(resp.data, resp.ya_procesado);
+                    document.getElementById('btnGuardar').disabled = resp.ya_procesado === true;
+                    // Mostrar/ocultar indicador verde inline
+                    var ind = document.getElementById('procesadoIndicator');
+                    if (resp.ya_procesado) {
+                        ind.style.display = 'inline-block';
+                    } else {
+                        ind.style.display = 'none';
+                    }
+                } else {
+                    showToast('error', resp.error);
+                    tbody.innerHTML = '<tr><td colspan="7" class="table-empty"><p>Error al cargar datos</p></td></tr>';
+                }
+            })
+            .catch(function(err) {
+                tbody.innerHTML = '<tr><td colspan="7" class="table-empty"><p>Error de conexión</p></td></tr>';
+                showToast('error', 'Error al cargar personal.');
+            });
+    }
+
+    function renderTablaPersonal(data, yaProcesado) {
+        var tbody = document.getElementById('tableBody');
+        var titulo = document.getElementById('tituloTabla');
+        var total = document.getElementById('totalPersonal');
+        var areaText = document.getElementById('selArea').selectedOptions[0].text;
+
+        titulo.textContent = 'Personal de ' + areaText;
+        var totalHtml = data.length + ' personas';
+        if (yaProcesado) {
+            totalHtml += ' <span class="badge badge-success" style="margin-left:8px;"><i class="fa-solid fa-check-circle"></i> Procesado</span>';
+        }
+        total.innerHTML = totalHtml;
+
+        if (!data || data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" class="table-empty"><i class="fa-solid fa-users-slash"></i><p>No hay personal activo en esta área</p></td></tr>';
+            return;
+        }
+
+        var html = '';
+        data.forEach(function(p, idx) {
+            var estadoClass = '';
+            var estadoIcon = '';
+            var estadoBadge = '';
+
+            if (p.estado === 'Asistente') {
+                estadoClass = 'badge-success';
+                estadoIcon = '<i class="fa-solid fa-check-circle"></i>';
+                estadoBadge = 'Asistente';
+            } else if (p.estado === 'Dia Libre') {
+                estadoClass = 'badge-warning';
+                estadoIcon = '<i class="fa-solid fa-sun"></i>';
+                estadoBadge = 'Día Libre';
+            } else if (p.estado === 'Incidencia') {
+                estadoClass = 'badge-danger';
+                estadoIcon = '<i class="fa-solid fa-triangle-exclamation"></i>';
+                estadoBadge = p.sigla_incidencia || 'Incidencia';
+            }
+
+            var btnAsistente = p.estado === 'Asistente' ? 'btn-primary' : 'btn-outline';
+            var btnDiaLibre = p.estado === 'Dia Libre' ? 'btn-warning' : 'btn-outline';
+            var btnIncidencia = p.estado === 'Incidencia' ? 'btn-danger' : 'btn-outline';
+
+            var procesadoIcon = p.procesado
+                ? '<span class="procesado-row-icon" title="Asistencia procesada"><i class="fa-solid fa-check-circle"></i></span> '
+                : '';
+
+            html += '<tr data-id="' + p.id + '" data-estado="' + p.estado + '">' +
+                '<td><strong>' + (idx + 1) + '</strong></td>' +
+                '<td>' + procesadoIcon + escapeHtml(p.nombres) + '</td>' +
+                '<td>' + escapeHtml(p.apellidos) + '</td>' +
+                '<td>' + escapeHtml(p.cedula) + '</td>' +
+                '<td>' + escapeHtml(p.num_ficha) + '</td>' +
+                '<td><span class="badge ' + estadoClass + '" id="estado-' + p.id + '">' +
+                    estadoIcon + ' ' + estadoBadge +
+                '</span></td>' +
+                '<td>' +
+                    '<div class="action-btns" style="gap:4px;">' +
+                        '<button class="btn btn-sm ' + btnAsistente + '" onclick="window.__setEstado(' + p.id + ', \'Asistente\')" title="Marcar como Asistente">' +
+                            '<i class="fa-solid fa-check-circle"></i>' +
+                        '</button>' +
+                        '<button class="btn btn-sm ' + btnDiaLibre + '" onclick="window.__setEstado(' + p.id + ', \'Dia Libre\')" title="Marcar Día Libre">' +
+                            '<i class="fa-solid fa-sun"></i>' +
+                        '</button>' +
+                        '<button class="btn btn-sm ' + btnIncidencia + '" onclick="window.__abrirIncidencia(' + p.id + ')" title="Asignar Incidencia">' +
+                            '<i class="fa-solid fa-triangle-exclamation"></i>' +
+                        '</button>' +
+                    '</div>' +
+                '</td>' +
+                '</tr>';
+        });
+        tbody.innerHTML = html;
+    }
+
+    // ─── Cambiar estado de un empleado ───
+    window.__setEstado = function(id, estado) {
+        var p = state.personal.find(function(item) { return item.id === id; });
+        if (!p) return;
+
+        p.estado = estado;
+        if (estado !== 'Incidencia') {
+            p.id_incidencia = null;
+            p.observacion = '';
+            p.fecha_inicio_hi = null;
+            p.fecha_fin_hi = null;
+            p.sigla_incidencia = '';
+        }
+
+        actualizarFila(id);
+    };
+
+    function actualizarFila(id) {
+        var p = state.personal.find(function(item) { return item.id === id; });
+        if (!p) return;
+
+        var badge = document.getElementById('estado-' + id);
+        var row = badge ? badge.closest('tr') : null;
+
+        // Actualizar badge
+        var estadoClass = '';
+        var icon = '';
+        var text = '';
+        if (p.estado === 'Asistente') {
+            estadoClass = 'badge-success';
+            icon = '<i class="fa-solid fa-check-circle"></i>';
+            text = 'Asistente';
+        } else if (p.estado === 'Dia Libre') {
+            estadoClass = 'badge-warning';
+            icon = '<i class="fa-solid fa-sun"></i>';
+            text = 'Día Libre';
+        } else if (p.estado === 'Incidencia') {
+            estadoClass = 'badge-danger';
+            icon = '<i class="fa-solid fa-triangle-exclamation"></i>';
+            // Buscar el nombre de la incidencia
+            var sel = document.getElementById('selIncidencia');
+            var incText = '';
+            if (p.id_incidencia && sel) {
+                for (var i = 0; i < sel.options.length; i++) {
+                    if (sel.options[i].value == p.id_incidencia) {
+                        incText = sel.options[i].text;
+                        break;
+                    }
+                }
+            }
+            text = incText || 'Incidencia';
+        }
+
+        badge.className = 'badge ' + estadoClass;
+        badge.innerHTML = icon + ' ' + text;
+
+        if (row) {
+            row.dataset.estado = p.estado;
+            // Actualizar botones
+            var btns = row.querySelectorAll('.action-btns button');
+            if (btns.length >= 3) {
+                btns[0].className = 'btn btn-sm ' + (p.estado === 'Asistente' ? 'btn-primary' : 'btn-outline');
+                btns[1].className = 'btn btn-sm ' + (p.estado === 'Dia Libre' ? 'btn-warning' : 'btn-outline');
+                btns[2].className = 'btn btn-sm ' + (p.estado === 'Incidencia' ? 'btn-danger' : 'btn-outline');
+            }
+        }
+    }
+
+    // ─── Modal de Incidencia ───
+    window.__abrirIncidencia = function(id) {
+        var p = state.personal.find(function(item) { return item.id === id; });
+        if (!p) return;
+
+        modalPersonalId = id;
+        document.getElementById('modalIncidenciaPersonal').textContent =
+            p.nombres + ' ' + p.apellidos;
+        document.getElementById('selIncidencia').value = p.id_incidencia || '';
+        document.getElementById('fechaInicioHI').value = p.fecha_inicio_hi || state.fecha || getToday();
+        document.getElementById('fechaFinHI').value = p.fecha_fin_hi || '';
+        document.getElementById('obsIncidencia').value = p.observacion || '';
+        modalIncidencia.style.display = 'flex';
+    };
+
+    document.getElementById('modalIncidenciaClose').addEventListener('click', function() {
+        modalIncidencia.style.display = 'none';
+    });
+    document.getElementById('btnIncidenciaCancelar').addEventListener('click', function() {
+        modalIncidencia.style.display = 'none';
+    });
+    document.getElementById('btnIncidenciaAplicar').addEventListener('click', function() {
+        var idIncidencia = document.getElementById('selIncidencia').value;
+        if (!idIncidencia) {
+            showToast('warning', 'Seleccione un tipo de incidencia.');
+            return;
+        }
+
+        var p = state.personal.find(function(item) { return item.id === modalPersonalId; });
+        if (p) {
+            p.estado = 'Incidencia';
+            p.id_incidencia = parseInt(idIncidencia);
+            p.fecha_inicio_hi = document.getElementById('fechaInicioHI').value || state.fecha;
+            p.fecha_fin_hi = document.getElementById('fechaFinHI').value || null;
+            p.observacion = document.getElementById('obsIncidencia').value.trim();
+            p.sigla_incidencia = (function() {
+                var sel = document.getElementById('selIncidencia');
+                for (var i = 0; i < sel.options.length; i++) {
+                    if (sel.options[i].value == idIncidencia) {
+                        return sel.options[i].text.split(' (')[0];
+                    }
+                }
+                return '';
+            })();
+            actualizarFila(modalPersonalId);
+        }
+        modalIncidencia.style.display = 'none';
+    });
+
+    // Cerrar modal al hacer clic fuera
+    modalIncidencia.addEventListener('click', function(e) {
+        if (e.target === modalIncidencia) {
+            modalIncidencia.style.display = 'none';
+        }
+    });
+
+    // ─── Guardar asistencias ───
+    document.getElementById('btnGuardar').addEventListener('click', function() {
+        if (!state.personal || state.personal.length === 0) {
+            showToast('warning', 'No hay personal cargado.');
+            return;
+        }
+
+        var registros = state.personal.map(function(p) {
+            return {
+                id_personal: p.id,
+                estado: p.estado,
+                id_incidencia: p.id_incidencia || null,
+                observacion: p.observacion || '',
+                fecha_inicio: p.fecha_inicio_hi || state.fecha,
+                fecha_fin: p.fecha_fin_hi || null,
+            };
+        });
+
+        var btn = this;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Guardando...';
+
+        fetch('/asistencias/guardar', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                fecha: state.fecha,
+                registros: registros,
+            })
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(resp) {
+            if (resp.success) {
+                showToast('success', resp.message);
+                // Mostrar indicador de procesado
+                document.getElementById('procesadoIndicator').style.display = 'inline-block';
+                // Actualizar badge en el header
+                var total = document.getElementById('totalPersonal');
+                if (total.innerHTML.indexOf('Procesado') === -1) {
+                    total.innerHTML += ' <span class="badge badge-success" style="margin-left:8px;"><i class="fa-solid fa-check-circle"></i> Procesado</span>';
+                }
+                // Deshabilitar botón guardar
+                document.getElementById('btnGuardar').disabled = true;
+            } else {
+                showToast('error', resp.error);
+            }
+        })
+        .catch(function() {
+            showToast('error', 'Error de conexión al guardar.');
+        })
+        .finally(function() {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Registrar Asistencia';
+        });
+    });
+
+    // ─── Evento del botón Cargar ───
+    document.getElementById('btnCargar').addEventListener('click', cargarPersonal);
+
+    // ─── Cargar con Enter en selects/inputs ───
+    document.getElementById('selArea').addEventListener('change', cargarPersonal);
+    document.getElementById('fechaAsistencia').addEventListener('change', function() {
+        if (document.getElementById('selArea').value) {
+            cargarPersonal();
+        }
+    });
+
+    // ─── Helper: escapeHtml ───
+    function escapeHtml(text) {
+        if (!text) return '';
+        var d = document.createElement('div');
+        d.textContent = text;
+        return d.innerHTML;
+    }
+})();
+</script>
+{% endblock %}

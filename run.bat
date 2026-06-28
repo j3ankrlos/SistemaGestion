@@ -1,9 +1,9 @@
 @echo off
-title Sistema Porcino - Portable
+title Sistema de Gestión - Portable
 cd /d "%~dp0"
 
 :: ══════════════════════════════════════════
-::  SISTEMA PORCINO - Launcher Portable
+::  SISTEMA DE GESTIÓN - Launcher Portable
 ::  NO requiere permisos de administrador
 :: ══════════════════════════════════════════
 

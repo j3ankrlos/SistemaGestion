@@ -24,7 +24,7 @@ def login():
         # Buscar usuario con JOINs a Roles y Personal
         user_data = execute_query(
             """SELECT u.IdUsuario, u.Usuario, u.Clave, u.NombreCorto, u.Fk_IdRol,
-                      u.Fk_IdPersonal, r.Rol, p.Nombres, p.Apellidos
+                      u.Fk_IdPersonal, r.Rol, p.Nombres, p.Apellidos, u.Fk_Sitio
                FROM (Usuarios u
                LEFT JOIN Roles r ON u.Fk_IdRol = r.IdRol)
                LEFT JOIN Personal p ON u.Fk_IdPersonal = p.IdPersonal
@@ -34,7 +34,7 @@ def login():
 
         if user_data:
             # Desempaquetar datos del usuario encontrado
-            id_usuario, db_usuario, db_clave, nombre, id_rol, id_personal, rol_nombre, nombres, apellidos = user_data
+            id_usuario, db_usuario, db_clave, nombre, id_rol, id_personal, rol_nombre, nombres, apellidos, fk_sitio = user_data
 
             # Verificar la contraseña contra el hash almacenado
             if bcrypt.checkpw(clave.encode('utf-8'), db_clave.encode('utf-8')):
@@ -45,6 +45,7 @@ def login():
                 session['rol_id'] = id_rol
                 session['rol_nombre'] = rol_nombre or ''
                 session['id_personal'] = id_personal or 0
+                session['fk_sitio'] = fk_sitio or 0
 
                 # ── Calcular iniciales para el avatar ──
                 iniciales = ''
