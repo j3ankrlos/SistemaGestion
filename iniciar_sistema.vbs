@@ -1,6 +1,6 @@
 Option Explicit
 
-Dim WshShell, fso, strBase, strCmd, strKillCmd, strPort, strPython, strSetupPy, strSep
+Dim WshShell, fso, strBase, strCmd, strKillCmd, strPort, strPython, strSetupPy, strSep, strNoVenv
 
 Set WshShell = CreateObject("WScript.Shell")
 Set fso = CreateObject("Scripting.FileSystemObject")
@@ -18,6 +18,7 @@ strSep = "\"
 strPort    = "5000"
 strPython  = strBase & "\venv\Scripts\python.exe"
 strSetupPy = strBase & "\setup_portable.py"
+strNoVenv  = strBase & "\.no_venv"       ' Marcador: modo sin venv activo
 
 ' ═══════════════════════════════════════════════
 '  FUNCIÓN: Verificar si Python está en el PATH
@@ -79,25 +80,19 @@ End If
 ' ═══════════════════════════════════════════════
 '  3) VERIFICAR ENTORNO: si no hay venv, ejecutar setup
 ' ═══════════════════════════════════════════════
-If Not fso.FileExists(strPython) Then
+If Not fso.FileExists(strPython) And Not fso.FileExists(strNoVenv) Then
     If fso.FileExists(strSetupPy) Then
         ' Mostrar ventana de consola para que el usuario vea el progreso
         RunVisible "python """ & strSetupPy & """"
-        ' Si después del setup aún no existe Python del venv
-        If Not VenvIsUsable() Then
-            MsgBox "El setup no pudo crear el entorno virtual." & vbCrLf & _
+        ' Verificar si el setup activó modo sin venv
+        If Not VenvIsUsable() And Not fso.FileExists(strNoVenv) Then
+            MsgBox "El setup no pudo preparar el entorno." & vbCrLf & vbCrLf & _
                    "Posibles causas:" & vbCrLf & _
-                   "  - Antivirus bloqueando la creación de archivos" & vbCrLf & _
-                   "  - Carpeta venv/ con permisos incorrectos" & vbCrLf & _
-                   "  - Python no tiene permisos suficientes" & vbCrLf & vbCrLf & _
-                   "Soluciones:" & vbCrLf & _
-                   "  1. Cierra el antivirus temporalmente e intenta de nuevo" & vbCrLf & _
-                   "  2. Abre una terminal COMO ADMINISTRADOR y ejecuta:" & vbCrLf & _
-                   "     rmdir /s /q """ & strBase & "\venv""" & vbCrLf & _
-                   "     python setup_portable.py" & vbCrLf & vbCrLf & _
-                   "  3. Si el problema persiste, abre una terminal normal y" & vbCrLf & _
-                   "     ejecuta: python setup_portable.py" & vbCrLf & _
-                   "     (así verás el mensaje de error detallado)", _
+                   "  - Antivirus bloqueando" & vbCrLf & _
+                   "  - Permisos de Python insuficientes" & vbCrLf & vbCrLf & _
+                   "Abre una terminal en la carpeta del proyecto y ejecuta:" & vbCrLf & _
+                   "  python setup_portable.py" & vbCrLf & _
+                   "(así verás el error detallado)", _
                    vbExclamation, "Sistema de Gestión - Error de entorno"
             WScript.Quit 1
         End If
@@ -110,20 +105,29 @@ If Not fso.FileExists(strPython) Then
 End If
 
 ' ═══════════════════════════════════════════════
-'  4) LIBERAR PUERTO: mata procesos zombies en :5000
+'  4) ELEGIR PYTHON: venv o sistema
+' ═══════════════════════════════════════════════
+If fso.FileExists(strNoVenv) Then
+    ' Modo sin venv — usar python del sistema
+    strPython = "python"
+End If
+' Si no, strPython ya apunta a venv\Scripts\python.exe
+
+' ═══════════════════════════════════════════════
+'  5) LIBERAR PUERTO: mata procesos zombies en :5000
 ' ═══════════════════════════════════════════════
 strKillCmd = "cmd /c netstat -ano | findstr :" & strPort & " > ""%TEMP%\gestion_port.txt"" & for /f ""tokens=5"" %a in ('findstr LISTENING ""%TEMP%\gestion_port.txt""') do taskkill /F /PID %a 2>nul"
 WshShell.Run strKillCmd, 0, True
 WScript.Sleep 1000
 
 ' ═══════════════════════════════════════════════
-'  5) INICIAR SERVIDOR (ventana oculta)
+'  6) INICIAR SERVIDOR (ventana oculta)
 ' ═══════════════════════════════════════════════
 strCmd = """" & strPython & """ """ & strBase & "\app.py"""
 WshShell.Run strCmd, 0, False
 
 ' ═══════════════════════════════════════════════
-'  6) ESPERAR Y ABRIR NAVEGADOR
+'  7) ESPERAR Y ABRIR NAVEGADOR
 ' ═══════════════════════════════════════════════
 WScript.Sleep 4000
 WshShell.Run "http://127.0.0.1:" & strPort & "/", 1, False

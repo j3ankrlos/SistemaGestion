@@ -161,15 +161,16 @@ def setup_venv():
             error(f"No se pudo crear el entorno virtual tras 3 intentos.")
             error(f"Detalle: {result.stderr}")
             print()
-            info("Posibles causas y soluciones:")
-            info("  1. Antivirus bloqueando la creación de archivos → deshabilitar temporalmente")
-            info("  2. Carpeta venv/ residual con permisos incorrectos → ejecuta: rmdir /s /q venv")
-            info("  3. Python no tiene permisos suficientes → ejecuta como Administrador:")
-            info(f"     python -m venv {VENV_DIR}")
+            warn("╔══════════════════════════════════════════════════════════╗")
+            warn("║  NO SE PUDO CREAR EL ENTORNO VIRTUAL (venv)           ║")
+            warn("║  Se usará el modo SIN VENV (instalación global)        ║")
+            warn("╚══════════════════════════════════════════════════════════╝")
             print()
-            info("Una vez resuelto, ejecuta de nuevo:")
-            info("  python setup_portable.py")
-            return False
+            info("Instalando dependencias con pip install --user...")
+            print()
+
+            # ── Modo sin venv: instalar paquetes a nivel de usuario ──
+            return install_deps_system()
 
     ok("Entorno virtual creado")
 
@@ -240,13 +241,98 @@ def setup_venv():
 
 
 # ──────────────────────────────────────────────
+#  Instalar dependencias a nivel de sistema (sin venv)
+# ──────────────────────────────────────────────
+def install_deps_system():
+    """Instala paquetes con pip install --user (no necesita admin).
+    Usado cuando no se pudo crear el venv.
+    Crea un archivo .no_venv para que los lanzadores lo detecten."""
+    titulo("3. Instalando dependencias (modo sin venv)")
+
+    info("Usando: pip install --user (NO necesita administrador)")
+    print()
+
+    # Determinar pip correcto
+    pip_cmd = [sys.executable, '-m', 'pip']
+
+    # Actualizar pip
+    info("Actualizando pip...")
+    subprocess.run(pip_cmd + ['install', '--upgrade', 'pip'],
+                   capture_output=True, text=True)
+
+    wheels_dir = os.path.join(BASE_DIR, 'wheels')
+
+    # Instalar dependencias
+    if os.path.exists(REQUIREMENTS_FILE):
+        if os.path.exists(wheels_dir):
+            info("Intentando desde paquetes locales (wheels/)...")
+            result = subprocess.run(
+                pip_cmd + ['install', '--no-index', '--find-links', wheels_dir, '-r', REQUIREMENTS_FILE],
+                capture_output=True, text=True
+            )
+            if result.returncode == 0:
+                ok("Dependencias instaladas desde paquetes locales")
+            else:
+                warn("Paquetes locales incompatibles, intentando desde internet...")
+                result = subprocess.run(
+                    pip_cmd + ['install', '-r', REQUIREMENTS_FILE],
+                    capture_output=True, text=True
+                )
+                if result.returncode == 0:
+                    ok("Dependencias instaladas desde internet")
+                else:
+                    error(f"Error: {result.stderr}")
+                    return False
+        else:
+            info("Instalando desde internet...")
+            result = subprocess.run(
+                pip_cmd + ['install', '-r', REQUIREMENTS_FILE],
+                capture_output=True, text=True
+            )
+            if result.returncode == 0:
+                ok("Dependencias instaladas desde internet")
+            else:
+                error(f"Error: {result.stderr}")
+                return False
+    else:
+        info("Instalando dependencias mínimas...")
+        result = subprocess.run(
+            pip_cmd + ['install', 'Flask', 'pyodbc', 'bcrypt', 'waitress'],
+            capture_output=True, text=True
+        )
+        if result.returncode != 0:
+            error(f"Error: {result.stderr}")
+            return False
+
+    # Crear marcador .no_venv para los lanzadores (VBS, BAT)
+    no_venv_file = os.path.join(BASE_DIR, '.no_venv')
+    try:
+        with open(no_venv_file, 'w') as f:
+            f.write('1')
+        ok("Modo sin venv activado (archivo .no_venv creado)")
+    except Exception:
+        pass
+
+    print()
+    ok("Dependencias instaladas correctamente (modo sin venv)")
+    return True
+
+
+# ──────────────────────────────────────────────
 #  Paso 4: Verificar driver ODBC de Access
 # ──────────────────────────────────────────────
 def check_odbc_driver():
     """Verifica que el driver 'Microsoft Access Driver' esté instalado en el sistema."""
     titulo("4. Driver ODBC de Microsoft Access")
 
-    python_venv = os.path.join(VENV_DIR, 'Scripts', 'python.exe')
+    # Usar Python del sistema si no hay venv, o el del venv si existe
+    no_venv_file = os.path.join(BASE_DIR, '.no_venv')
+    if os.path.exists(no_venv_file):
+        python_venv = sys.executable
+    else:
+        python_venv = os.path.join(VENV_DIR, 'Scripts', 'python.exe')
+        if not os.path.exists(python_venv):
+            python_venv = sys.executable
 
     # Código Python que lista los drivers ODBC disponibles
     check_code = """
@@ -346,7 +432,14 @@ def setup_config():
     # Probar conexión con el driver ODBC
     info("Probando conexión...")
 
-    python_venv = os.path.join(VENV_DIR, 'Scripts', 'python.exe')
+    # Usar Python del sistema si no hay venv, o el del venv si existe
+    no_venv_file = os.path.join(BASE_DIR, '.no_venv')
+    if os.path.exists(no_venv_file):
+        python_venv = sys.executable
+    else:
+        python_venv = os.path.join(VENV_DIR, 'Scripts', 'python.exe')
+        if not os.path.exists(python_venv):
+            python_venv = sys.executable
     test_code = f"""
 import pyodbc
 try:
@@ -447,16 +540,18 @@ $timer.Start()
 # ──────────────────────────────────────────────
 #  Resumen final del setup
 # ──────────────────────────────────────────────
-def print_summary(success_venv, success_odbc):
+def print_summary(success_venv, success_odbc, no_venv_mode):
     """Muestra un resumen con el resultado de cada paso del setup."""
     print()
     print("═" * 60)
     print(f"{Color.NEGRITA}       RESUMEN DEL SETUP{Color.RESET}")
     print("═" * 60)
 
+    modo_venv = "SIN venv (instalación global)" if no_venv_mode else "Con venv"
     checks = [
         ("Python", True),
-        ("Entorno virtual (venv)", success_venv),
+        ("Entorno virtual", success_venv),
+        (f"  └ Modo: {modo_venv}", True),
         ("Dependencias instaladas", success_venv),
         ("Driver ODBC Access", success_odbc),
     ]
@@ -468,10 +563,12 @@ def print_summary(success_venv, success_odbc):
     print()
 
     if success_venv:
-        ok("LISTO: Puedes iniciar el sistema con:")
+        ok("LISTO: Puedes iniciar el sistema dando doble clic en:")
         print()
         print(f"    {Color.AZUL}iniciar_sistema.vbs{Color.RESET}")
-        print(f"    {Color.AZUL}python app.py{Color.RESET}")
+        print()
+        if no_venv_mode:
+            info("(Modo sin venv — los lanzadores usarán python directamente)")
         print()
     else:
         error("El setup tiene problemas. Revisa los mensajes anteriores.")
@@ -514,8 +611,11 @@ def main():
     # Paso 6: Crear lanzador .ps1
     create_portable_launcher()
 
+    # Detectar si estamos en modo sin venv
+    no_venv_mode = os.path.exists(os.path.join(BASE_DIR, '.no_venv'))
+
     # Resumen final
-    print_summary(success_venv, success_odbc)
+    print_summary(success_venv, success_odbc, no_venv_mode)
 
 
 # ═══════════════════════════════════════════════

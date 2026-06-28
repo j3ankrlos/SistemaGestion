@@ -12,6 +12,9 @@ test_*.py
 # ── Config local (contiene ruta de BD) ──
 config.json
 
+# ── Marcador de modo sin venv ──
+.no_venv
+
 # ── IDE ──
 .vscode/
 .idea/
