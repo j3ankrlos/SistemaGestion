@@ -4,7 +4,7 @@
 <div class="card">
     <div class="card-header">
         <h2><i class="fa-solid fa-users"></i> Gesti&oacute;n de Usuarios</h2>
-        {% if 'usuarios.crear' in session.get('permisos', []) %}
+        {% if 'usuarios.crear' in (session.get('permisos') or []) %}
         <button class="btn-primary" id="btnNuevoUsuario" style="width:auto; padding:10px 20px; display:inline-flex; align-items:center; gap:8px;">
             <i class="fa-solid fa-plus"></i> Nuevo Usuario
         </button>
@@ -139,7 +139,7 @@ window.__roles = [
     { id: {{ r[0] }}, nombre: '{{ r[1]|e }}' },
     {% endfor %}
 ];
-window.__permisos = {{ session.get('permisos', []) | tojson | safe }};
+window.__permisos = {{ (session.get('permisos') or []) | tojson | safe }};
 
 (function() {
     'use strict';

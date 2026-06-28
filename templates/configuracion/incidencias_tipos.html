@@ -10,7 +10,7 @@
         (reposos, vacaciones, permisos, etc.).
     </p>
 
-    {% if 'incidencias.crear' in session.get('permisos', []) %}
+    {% if 'incidencias.crear' in (session.get('permisos') or []) %}
     <form id="formNuevoTipo" class="catalog-form">
         <div class="catalog-form-row">
             <div class="form-group">
@@ -104,7 +104,7 @@
                 var html = '';
                 data.forEach(function(t) {
                     var btnEditar = '<button class="btn btn-edit btn-editar-tipo" data-id="' + t.id + '" data-nombre="' + escapeHtml(t.nombre) + '" data-sigla="' + escapeHtml(t.sigla) + '"><i class="fa-solid fa-pen"></i></button>';
-                    var btnEliminar = {{ 'true' if 'incidencias.eliminar' in session.get('permisos', []) else 'false' }}
+                    var btnEliminar = {{ 'true' if 'incidencias.eliminar' in (session.get('permisos') or []) else 'false' }}
                         ? '<button class="btn btn-sm btn-danger btn-eliminar-tipo" data-id="' + t.id + '" data-nombre="' + escapeHtml(t.nombre) + '"><i class="fa-solid fa-trash-can"></i></button>'
                         : '';
                     html += '<tr>' +

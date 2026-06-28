@@ -9,7 +9,7 @@
         Gestiona las áreas de trabajo del personal. Cada área puede estar asociada a un sitio.
     </p>
 
-    {% if 'areas.crear' in session.get('permisos', []) %}
+    {% if 'areas.crear' in (session.get('permisos') or []) %}
     <form id="formNuevaArea" class="catalog-form">
         <div class="catalog-form-row">
             <div class="form-group" style="flex:1;">
@@ -128,8 +128,8 @@
                 }
                 var html = '';
                 resp.data.forEach(function(a) {
-                    var tienePermisoEditar = {{ 'true' if 'areas.editar' in session.get('permisos', []) else 'false' }};
-                    var tienePermisoEliminar = {{ 'true' if 'areas.eliminar' in session.get('permisos', []) else 'false' }};
+                    var tienePermisoEditar = {{ 'true' if 'areas.editar' in (session.get('permisos') or []) else 'false' }};
+                    var tienePermisoEliminar = {{ 'true' if 'areas.eliminar' in (session.get('permisos') or []) else 'false' }};
                     var btnEditar = tienePermisoEditar
                         ? '<button class="btn btn-edit btn-editar-area" data-id="' + a.id + '" data-nombre="' + escapeHtml(a.area) + '" data-sitio="' + (a.fk_sitio || '') + '"><i class="fa-solid fa-pen"></i></button>'
                         : '';

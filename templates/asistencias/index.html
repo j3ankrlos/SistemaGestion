@@ -43,7 +43,7 @@
         <h3><i class="fa-solid fa-users"></i> <span id="tituloTabla">Personal del Área</span></h3>
         <div style="display:flex; gap:8px; align-items:center;">
             <span class="badge badge-info" id="totalPersonal">0</span>
-            {% if 'asistencias.registrar' in session.get('permisos', []) %}
+            {% if 'asistencias.registrar' in (session.get('permisos') or []) %}
             <button id="btnGuardar" class="btn btn-success btn-sm btn-icon" disabled>
                 <i class="fa-solid fa-floppy-disk"></i> Registrar Asistencia
             </button>

@@ -8,7 +8,7 @@
         </h1>
         <p class="page-subtitle">Registro de reposos, vacaciones y permisos del personal</p>
     </div>
-    {% if 'incidencias.crear' in session.get('permisos', []) %}
+    {% if 'incidencias.crear' in (session.get('permisos') or []) %}
     <button class="btn btn-primary btn-sm btn-icon" id="btnNuevaIncidencia">
         <i class="fa-solid fa-plus"></i> Nueva Incidencia
     </button>
@@ -192,7 +192,7 @@
                 : '<span class="status-badge inactive"><span class="status-dot inactive"></span> Finalizado</span>';
 
             var acciones = '';
-            if ({{ 'true' if 'incidencias.eliminar' in session.get('permisos', []) else 'false' }}) {
+            if ({{ 'true' if 'incidencias.eliminar' in (session.get('permisos') or []) else 'false' }}) {
                 acciones = '<button class="btn btn-sm btn-danger btn-eliminar" data-id="' + item.id + '" data-desc="' + escapeHtml(item.incidencia) + ' - ' + escapeHtml(item.nombres) + ' ' + escapeHtml(item.apellidos) + '"><i class="fa-solid fa-trash-can"></i></button>';
             }
 

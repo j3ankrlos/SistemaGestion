@@ -4,7 +4,7 @@
 <div class="card">
     <div class="card-header">
         <h2><i class="fa-solid fa-users"></i> Usuarios <small style="color:var(--text-secondary);font-size:0.7rem;font-weight:400;">›</small> <span style="color:var(--accent);"><i class="fa-solid fa-shield-halved"></i> Roles</span></h2>
-        {% if 'roles.crear' in session.get('permisos', []) %}
+        {% if 'roles.crear' in (session.get('permisos') or []) %}
         <a href="{{ url_for('roles.crear') }}" class="btn-primary" style="display:inline-block; width:auto; text-decoration:none;"><i class="fa-solid fa-plus"></i> Nuevo Rol</a>
         {% endif %}
     </div>
@@ -24,7 +24,7 @@
                     <td>{{ r[0] }}</td>
                     <td><span class="badge" style="background:var(--bg-tertiary); padding:5px 10px; border-radius:15px;">{{ r[1] }}</span></td>
                     <td>
-                        {% if 'roles.eliminar' in session.get('permisos', []) %}
+                        {% if 'roles.eliminar' in (session.get('permisos') or []) %}
                         <form action="{{ url_for('roles.eliminar', id=r[0]) }}" method="POST" style="display:inline;">
                             <button type="submit" class="btn-sm btn-logout" title="Eliminar" onclick="return confirm('¿Seguro que desea eliminar este rol? Se desvinculará de los permisos.');">
                                 <i class="fa-solid fa-trash"></i>

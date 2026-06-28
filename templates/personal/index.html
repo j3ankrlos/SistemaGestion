@@ -4,7 +4,7 @@
 <div class="card">
     <div class="card-header">
         <h2><i class="fa-solid fa-address-book"></i> Gesti&oacute;n de Personal</h2>
-        {% if 'personal.crear' in session.get('permisos', []) %}
+        {% if 'personal.crear' in (session.get('permisos') or []) %}
         <a href="{{ url_for('personal.crear') }}" class="btn-primary" style="width:auto; padding:10px 20px; display:inline-flex; align-items:center; gap:8px; text-decoration:none;">
             <i class="fa-solid fa-plus"></i> Nuevo Personal
         </a>
@@ -52,7 +52,7 @@
     'use strict';
 
     var state = { page: 1, search: '', totalPages: 1 };
-    var permisos = {{ session.get('permisos', []) | tojson | safe }};
+    var permisos = {{ (session.get('permisos') or []) | tojson | safe }};
 
     function showToast(icon, title) {
         Swal.fire({ toast:true, position:'top-end', icon:icon, title:title,
@@ -89,15 +89,15 @@
 
             var acciones = '<div class="action-btns">';
 
-            {% if 'personal.ver' in session.get('permisos', []) %}
+            {% if 'personal.ver' in (session.get('permisos') or []) %}
             acciones += '<a href="{{ url_for('personal.detalle', id=0) }}'.replace('/0', '/' + p.id) + '" class="btn-action edit" title="Ver detalle"><i class="fa-solid fa-eye"></i></a>';
             {% endif %}
 
-            {% if 'personal.editar' in session.get('permisos', []) %}
+            {% if 'personal.editar' in (session.get('permisos') or []) %}
             acciones += '<a href="{{ url_for('personal.editar', id=0) }}'.replace('/0', '/' + p.id) + '" class="btn-action edit" title="Editar"><i class="fa-solid fa-pen"></i></a>';
             {% endif %}
 
-            {% if 'personal.eliminar' in session.get('permisos', []) %}
+            {% if 'personal.eliminar' in (session.get('permisos') or []) %}
             acciones += '<button class="btn-action deactivate" onclick="eliminarPersonal(' + p.id + ')" title="Eliminar"><i class="fa-solid fa-trash"></i></button>';
             {% endif %}
 

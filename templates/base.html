@@ -22,7 +22,7 @@
                 </a>
             </li>
             
-            {% set tiene_modulo_usuarios = 'usuarios.ver' in session.get('permisos', []) or 'roles.ver' in session.get('permisos', []) or 'permisos.ver' in session.get('permisos', []) %}
+            {% set tiene_modulo_usuarios = 'usuarios.ver' in (session.get('permisos') or []) or 'roles.ver' in (session.get('permisos') or []) or 'permisos.ver' in (session.get('permisos') or []) %}
             {% if tiene_modulo_usuarios %}
             {% set submenu_activo = (request.endpoint and (request.endpoint.startswith('usuarios') or request.endpoint.startswith('roles') or request.endpoint.startswith('permisos'))) %}
             <li class="nav-item has-submenu">
@@ -31,21 +31,21 @@
                     <i class="fa-solid fa-chevron-down submenu-arrow"></i>
                 </a>
                 <ul class="submenu {% if submenu_activo %}expanded{% endif %}" id="submenuUsuarios">
-                    {% if 'usuarios.ver' in session.get('permisos', []) %}
+                    {% if 'usuarios.ver' in (session.get('permisos') or []) %}
                     <li>
                         <a href="{{ url_for('usuarios.index') }}" class="{% if request.endpoint and request.endpoint.startswith('usuarios') and not request.endpoint.startswith('usuarios.roles') and not request.endpoint.startswith('usuarios.permisos') %}active{% endif %}">
                             <i class="fa-solid fa-list"></i> <span>Lista de Usuarios</span>
                         </a>
                     </li>
                     {% endif %}
-                    {% if 'roles.ver' in session.get('permisos', []) %}
+                    {% if 'roles.ver' in (session.get('permisos') or []) %}
                     <li>
                         <a href="{{ url_for('roles.index') }}" class="{% if request.endpoint and request.endpoint.startswith('roles') %}active{% endif %}">
                             <i class="fa-solid fa-shield-halved"></i> <span>Roles</span>
                         </a>
                     </li>
                     {% endif %}
-                    {% if 'permisos.ver' in session.get('permisos', []) %}
+                    {% if 'permisos.ver' in (session.get('permisos') or []) %}
                     <li>
                         <a href="{{ url_for('permisos.index') }}" class="{% if request.endpoint and request.endpoint.startswith('permisos') %}active{% endif %}">
                             <i class="fa-solid fa-key"></i> <span>Permisos</span>
@@ -56,7 +56,7 @@
             </li>
             {% endif %}
 
-            {% set tiene_modulo_personal = 'personal.ver' in session.get('permisos', []) %}
+            {% set tiene_modulo_personal = 'personal.ver' in (session.get('permisos') or []) %}
             {% if tiene_modulo_personal %}
             {% set submenu_personal_activo = (request.endpoint and (request.endpoint.startswith('personal') or request.endpoint.startswith('incidencias') or request.endpoint.startswith('asistencias'))) %}
             <li class="nav-item has-submenu">
@@ -65,21 +65,21 @@
                     <i class="fa-solid fa-chevron-down submenu-arrow"></i>
                 </a>
                 <ul class="submenu {% if submenu_personal_activo %}expanded{% endif %}" id="submenuPersonal">
-                    {% if 'personal.ver' in session.get('permisos', []) %}
+                    {% if 'personal.ver' in (session.get('permisos') or []) %}
                     <li>
                         <a href="{{ url_for('personal.index') }}" class="{% if request.endpoint and request.endpoint.startswith('personal') and request.endpoint != 'personal.crear' %}active{% endif %}">
                             <i class="fa-solid fa-list"></i> <span>Personal</span>
                         </a>
                     </li>
                     {% endif %}
-                    {% if 'incidencias.ver' in session.get('permisos', []) %}
+                    {% if 'incidencias.ver' in (session.get('permisos') or []) %}
                     <li>
                         <a href="{{ url_for('incidencias.index') }}" class="{% if request.endpoint and request.endpoint.startswith('incidencias') %}active{% endif %}">
                             <i class="fa-solid fa-triangle-exclamation"></i> <span>Incidencias</span>
                         </a>
                     </li>
                     {% endif %}
-                    {% if 'asistencias.ver' in session.get('permisos', []) %}
+                    {% if 'asistencias.ver' in (session.get('permisos') or []) %}
                     <li class="nav-item has-submenu" style="width:100%;">
                         <a href="#" class="submenu-toggle {% if request.endpoint and request.endpoint.startswith('asistencias') %}expanded{% endif %}" data-target="submenuAsistencias" style="padding:8px 16px 8px 44px; font-size:0.85rem;">
                             <i class="fa-solid fa-clipboard-check"></i> <span>Asistencias</span>
@@ -105,7 +105,7 @@
 
         </ul>
 
-        {% if 'configuracion.ver' in session.get('permisos', []) or session.get('rol_id') == 1 %}
+        {% if 'configuracion.ver' in (session.get('permisos') or []) or session.get('rol_id') == 1 %}
         <div class="sidebar-bottom">
             <ul class="nav-links">
                 <li class="nav-item has-submenu">

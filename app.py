@@ -9,7 +9,7 @@ from routes.configuracion import config_bp
 from routes.personal import personal_bp
 from routes.incidencias import incidencias_bp
 from routes.asistencias import asistencias_bp
-from utils.decorators import login_required
+from utils.decorators import login_required, login_required_api
 
 # ── Crear aplicación Flask ──
 app = Flask(__name__)
@@ -277,7 +277,7 @@ def user_avatar():
 #  API: Estadísticas del Dashboard
 # ──────────────────────────────────────────────
 @app.route('/api/dashboard-stats')
-@login_required
+@login_required_api
 def dashboard_stats():
     """Devuelve estadísticas en JSON para el dashboard."""
     from database.connection import execute_query

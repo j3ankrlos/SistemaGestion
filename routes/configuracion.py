@@ -21,7 +21,7 @@ def config_required(f):
     from functools import wraps
     @wraps(f)
     def decorated(*args, **kwargs):
-        permisos = session.get('permisos', [])
+        permisos = session.get('permisos') or []
         if 'configuracion.ver' not in permisos and session.get('rol_id') != 1:
             flash('No tienes permisos para acceder a Configuración.', 'danger')
             return redirect(url_for('index'))
@@ -111,7 +111,7 @@ def database():
     # ── Procesar cambio de ruta (POST) ──
     if request.method == 'POST':
         # Verificar permiso específico para editar configuración
-        if 'configuracion.editar' not in session.get('permisos', []):
+        if 'configuracion.editar' not in (session.get('permisos') or []):
             flash('No tienes permiso para modificar la configuración.', 'danger')
             return redirect(url_for('config.database'))
 
@@ -208,7 +208,7 @@ def admin_areas():
 @login_required
 def api_areas_listar():
     """Devuelve JSON con todas las áreas y su sitio asociado."""
-    if 'areas.ver' not in session.get('permisos', []) and session.get('rol_id') != 1:
+    if 'areas.ver' not in (session.get('permisos') or []) and session.get('rol_id') != 1:
         return {'success': False, 'error': 'Permiso denegado'}, 403
     try:
         conn = get_connection()
@@ -270,7 +270,7 @@ def api_sitios_listar():
 @login_required
 def api_areas_crear():
     """Crea un área nueva."""
-    if 'areas.crear' not in session.get('permisos', []) and session.get('rol_id') != 1:
+    if 'areas.crear' not in (session.get('permisos') or []) and session.get('rol_id') != 1:
         return {'success': False, 'error': 'Permiso denegado'}, 403
     nombre = request.form.get('nombre', '').strip().upper()
     fk_sitio = request.form.get('fk_sitio', '').strip()
@@ -299,7 +299,7 @@ def api_areas_crear():
 @login_required
 def api_areas_editar():
     """Actualiza un área existente."""
-    if 'areas.editar' not in session.get('permisos', []) and session.get('rol_id') != 1:
+    if 'areas.editar' not in (session.get('permisos') or []) and session.get('rol_id') != 1:
         return {'success': False, 'error': 'Permiso denegado'}, 403
     area_id = request.form.get('id', '').strip()
     nombre = request.form.get('nombre', '').strip().upper()
@@ -331,7 +331,7 @@ def api_areas_editar():
 @login_required
 def api_areas_eliminar():
     """Elimina un área si no tiene personal asociado."""
-    if 'areas.eliminar' not in session.get('permisos', []) and session.get('rol_id') != 1:
+    if 'areas.eliminar' not in (session.get('permisos') or []) and session.get('rol_id') != 1:
         return {'success': False, 'error': 'Permiso denegado'}, 403
     area_id = request.form.get('id', '').strip()
     if not area_id or not area_id.isdigit():
