@@ -28,6 +28,27 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))  # Raíz del proyecto
 VENV_DIR = os.path.join(BASE_DIR, 'venv')               # Entorno virtual
 REQUIREMENTS_FILE = os.path.join(BASE_DIR, 'requirements.txt')  # Dependencias
 CONFIG_FILE = os.path.join(BASE_DIR, 'config.json')     # Configuración de BD
+WHEELS_DIR = os.path.join(BASE_DIR, 'wheels')           # Paquetes offline
+
+
+# ──────────────────────────────────────────────
+#  Detectar versiones de Python en wheels/
+# ──────────────────────────────────────────────
+def detectar_versiones_en_wheels():
+    """Escanea wheels/ y devuelve las versiones de Python detectadas."""
+    versiones = set()
+    if not os.path.exists(WHEELS_DIR):
+        return versiones
+    for f in os.listdir(WHEELS_DIR):
+        if not f.endswith('.whl'):
+            continue
+        # Buscar etiquetas como cp311, cp312, cp313
+        import re
+        m = re.search(r'cp(\d{3})', f)
+        if m:
+            ver = m.group(1)
+            versiones.add(f"{ver[0]}.{ver[1:]}")
+    return sorted(versiones)
 
 
 # ──────────────────────────────────────────────
@@ -185,7 +206,7 @@ def setup_venv():
                    capture_output=True, text=True)
 
     # Ruta de la carpeta wheels (paquetes precargados para offline)
-    wheels_dir = os.path.join(BASE_DIR, 'wheels')
+    wheels_dir = WHEELS_DIR
 
     # Instalar dependencias: primero intentar offline desde wheels/
     if os.path.exists(REQUIREMENTS_FILE):
@@ -198,7 +219,18 @@ def setup_venv():
             if result.returncode == 0:
                 ok("Dependencias instaladas desde paquetes locales")
             else:
-                warn("Paquetes locales incompatibles (versión de Python diferente)")
+                # Detectar qué versiones hay en wheels/ vs la actual
+                py_ver = f"{sys.version_info.major}.{sys.version_info.minor}"
+                wheels_vers = detectar_versiones_en_wheels()
+                warn("Paquetes locales incompatibles con esta versión de Python")
+                warn(f"  Python actual: {py_ver}")
+                if wheels_vers:
+                    warn(f"  Versiones en wheels/: {', '.join(wheels_vers)}")
+                    warn(f"  Sugerencia: Consigue ruedas para Python {py_ver} ejecutando")
+                    warn(f"    descargar_paquetes.bat en una PC con internet")
+                else:
+                    warn(f"  No se detectaron ruedas version-specific en wheels/")
+                print()
                 info("Intentando instalación desde internet...")
                 result = subprocess.run(
                     [python_venv, '-m', 'pip', 'install', '-r', REQUIREMENTS_FILE],
@@ -260,7 +292,7 @@ def install_deps_system():
     subprocess.run(pip_cmd + ['install', '--upgrade', 'pip'],
                    capture_output=True, text=True)
 
-    wheels_dir = os.path.join(BASE_DIR, 'wheels')
+    wheels_dir = WHEELS_DIR
 
     # Instalar dependencias
     if os.path.exists(REQUIREMENTS_FILE):
@@ -273,7 +305,19 @@ def install_deps_system():
             if result.returncode == 0:
                 ok("Dependencias instaladas desde paquetes locales")
             else:
-                warn("Paquetes locales incompatibles, intentando desde internet...")
+                # Detectar qué versiones hay en wheels/ vs la actual
+                py_ver = f"{sys.version_info.major}.{sys.version_info.minor}"
+                wheels_vers = detectar_versiones_en_wheels()
+                warn("Paquetes locales incompatibles con esta versión de Python")
+                warn(f"  Python actual: {py_ver}")
+                if wheels_vers:
+                    warn(f"  Versiones en wheels/: {', '.join(wheels_vers)}")
+                    warn(f"  Sugerencia: Consigue ruedas para Python {py_ver} ejecutando")
+                    warn(f"    descargar_paquetes.bat en una PC con internet")
+                else:
+                    warn(f"  No se detectaron ruedas version-specific en wheels/")
+                print()
+                info("Intentando instalación desde internet...")
                 result = subprocess.run(
                     pip_cmd + ['install', '-r', REQUIREMENTS_FILE],
                     capture_output=True, text=True
