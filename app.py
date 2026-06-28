@@ -200,11 +200,13 @@ def setup_db():
             from database.connection import get_connection
             old_path = Config.DB_PATH
             Config.DB_PATH = db_path
+            app.config['DB_PATH'] = db_path
             try:
                 conn = get_connection()
                 conn.close()  # Si conecta, la BD es válida
             except Exception as e:
                 Config.DB_PATH = old_path  # Restaurar ruta anterior
+                app.config['DB_PATH'] = old_path
                 return render_template('setup_db.html',
                                        error=f"Error al conectar a la base de datos: {e}")
 
