@@ -4,10 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sistema Porcino</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='fonts/inter.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     <!-- Font Awesome para iconos -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='fontawesome/css/all.min.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='sweetalert2/sweetalert2.min.css') }}">
 </head>
 <body>
@@ -58,17 +58,24 @@
 
             {% set tiene_modulo_personal = 'personal.ver' in session.get('permisos', []) %}
             {% if tiene_modulo_personal %}
-            {% set submenu_personal_activo = (request.endpoint and request.endpoint.startswith('personal')) %}
+            {% set submenu_personal_activo = (request.endpoint and (request.endpoint.startswith('personal') or request.endpoint.startswith('incidencias'))) %}
             <li class="nav-item has-submenu">
                 <a href="#" class="submenu-toggle {% if submenu_personal_activo %}expanded{% endif %}" data-target="submenuPersonal">
-                    <i class="fa-solid fa-address-book"></i> <span>Personal</span>
+                    <i class="fa-solid fa-address-book"></i> <span>RRHH</span>
                     <i class="fa-solid fa-chevron-down submenu-arrow"></i>
                 </a>
                 <ul class="submenu {% if submenu_personal_activo %}expanded{% endif %}" id="submenuPersonal">
                     {% if 'personal.ver' in session.get('permisos', []) %}
                     <li>
                         <a href="{{ url_for('personal.index') }}" class="{% if request.endpoint and request.endpoint.startswith('personal') and request.endpoint != 'personal.crear' %}active{% endif %}">
-                            <i class="fa-solid fa-list"></i> <span>Lista de Personal</span>
+                            <i class="fa-solid fa-list"></i> <span>Personal</span>
+                        </a>
+                    </li>
+                    {% endif %}
+                    {% if 'incidencias.ver' in session.get('permisos', []) %}
+                    <li>
+                        <a href="{{ url_for('incidencias.index') }}" class="{% if request.endpoint and request.endpoint.startswith('incidencias') %}active{% endif %}">
+                            <i class="fa-solid fa-triangle-exclamation"></i> <span>Incidencias</span>
                         </a>
                     </li>
                     {% endif %}
@@ -90,6 +97,11 @@
                         <li>
                             <a href="{{ url_for('config.database') }}" class="{% if request.endpoint == 'config.database' %}active{% endif %}">
                                 <i class="fa-solid fa-database"></i> <span>Base de Datos</span>
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{ url_for('config.admin_tipos_incidencias') }}" class="{% if request.endpoint == 'config.admin_tipos_incidencias' %}active{% endif %}">
+                                <i class="fa-solid fa-triangle-exclamation"></i> <span>Tipos de Incidencia</span>
                             </a>
                         </li>
                     </ul>

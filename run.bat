@@ -10,57 +10,95 @@ cd /d "%~dp0"
 :: ── 1) Verificar Python ──
 python --version >nul 2>&1
 if %errorlevel% neq 0 (
-    echo [ERROR] Python no esta instalado.
     echo.
-    echo Puedes descargarlo SIN permisos de admin desde:
+    echo [ERROR] Python no esta instalado o no esta en el PATH.
+    echo.
+    echo Descargalo SIN permisos de admin desde:
     echo   https://www.python.org/downloads/
-    echo.
-    echo O ejecuta: descargar_python.ps1 (PowerShell)
+    echo   ^(Marca "Add Python to PATH" al instalar^)
     echo.
     pause
     exit /b 1
 )
 
-:: ── 2) Crear entorno virtual si no existe ──
+:: ── 2) Detectar venv obsoleto (de otra computadora) ──
+::    Si python.exe existe pero falla al ejecutarse, el venv es invalido.
+::    Esto pasa cuando el venv fue creado en otra maquina con diferente ruta de Python.
+if exist "venv\Scripts\python.exe" (
+    venv\Scripts\python.exe --version >nul 2>&1
+    if %errorlevel% neq 0 (
+        echo.
+        echo [AVISO] El entorno virtual es de otra computadora.
+        echo         Eliminando y recreando automaticamente...
+        echo.
+        rmdir /s /q venv
+    )
+)
+
+:: ── 3) Crear entorno virtual si no existe ──
 if not exist "venv" (
     echo [1/3] Creando entorno virtual...
     python -m venv venv
     if %errorlevel% neq 0 (
+        echo.
         echo [ERROR] No se pudo crear el entorno virtual.
+        echo Asegurate de que Python este instalado correctamente.
         pause
         exit /b 1
     )
-    echo [2/3] Instalando dependencias...
+
     call venv\Scripts\activate.bat
-    pip install -r requirements.txt
+
+    echo [2/3] Instalando dependencias...
+
+    :: Intentar primero con paquetes locales (sin internet)
+    if exist "wheels\" (
+        echo        Usando paquetes locales ^(carpeta wheels\^)...
+        pip install --no-index --find-links=wheels -r requirements.txt --quiet
+        if %errorlevel% equ 0 (
+            echo        Dependencias instaladas correctamente ^(modo offline^).
+            goto :dependencias_ok
+        )
+        echo        Paquetes locales incompletos, intentando online...
+    )
+
+    :: Intentar con internet como fallback
+    pip install -r requirements.txt --quiet
     if %errorlevel% neq 0 (
         echo.
-        echo [AVISO] Algunas dependencias fallaron.
-        echo Puedes ignorarlo si ya estaban instaladas.
+        echo [AVISO] Error instalando algunas dependencias.
+        echo Si no tienes internet, ejecuta primero descargar_paquetes.bat
+        echo en la computadora que SI tiene internet.
+        echo.
+        pause
+        exit /b 1
     )
+
+    :dependencias_ok
+    echo        Listo.
 ) else (
     call venv\Scripts\activate.bat
 )
 
-:: ── 3) Liberar puerto 5000 (matar procesos zombies) ──
-echo [3/3] Verificando puerto...
+:: ── 4) Liberar puerto 5000 (matar procesos zombies) ──
+echo [3/3] Verificando puerto 5000...
 for /f "tokens=5" %%a in ('netstat -ano ^| findstr :5000 ^| findstr LISTENING') do (
-    echo    Liberando puerto 5000 (PID %%a)...
+    echo         Liberando puerto 5000 ^(PID %%a^)...
     taskkill /F /PID %%a >nul 2>&1
 )
 timeout /t 1 /nobreak >nul
 
-:: ── 4) Verificar driver ODBC Access (solo advertencia) ──
-python -c "import pyodbc; [d for d in pyodbc.drivers() if 'access' in d.lower()][0]" >nul 2>&1
+:: ── 5) Verificar driver ODBC Access ──
+venv\Scripts\python.exe -c "import pyodbc; [d for d in pyodbc.drivers() if 'access' in d.lower()][0]" >nul 2>&1
 if %errorlevel% neq 0 (
     echo.
     echo [AVISO] No se detecta el driver de Microsoft Access.
-    echo El sistema requiere el Microsoft Access Database Engine.
-    echo Descargalo desde: https://aka.ms/accessdatabasengine
+    echo Si tienes Microsoft Office instalado, deberia estar disponible automaticamente.
+    echo De lo contrario, descargalo desde: https://aka.ms/accessdatabasengine
     echo.
 )
 
-:: ── 5) Iniciar servidor ──
+:: ── 6) Iniciar servidor ──
 echo.
 echo ========================================
 echo   SISTEMA PORCINO
@@ -69,7 +107,7 @@ echo.
 echo Servidor: http://localhost:5000
 echo Para salir: Cierra esta ventana o pulsa Ctrl+C
 echo.
-python app.py
+venv\Scripts\python.exe app.py
 
 :: Si el servidor se cierra, mantener ventana visible
 echo.

@@ -56,7 +56,7 @@
     function showToast(icon, title) {
         Swal.fire({ toast:true, position:'top-end', icon:icon, title:title,
             showConfirmButton:false, timer:3000, timerProgressBar:true,
-            background:'#1e1e24', color:'#e0e0e0' });
+            background:'#1a1714', color:'#e8ddd0' });
     }
 
     function loadTable() {
@@ -189,12 +189,12 @@
             text: 'Esta acci&oacute;n no se puede deshacer.',
             icon: 'warning',
             showCancelButton: true,
-            confirmButtonColor: '#ff4757',
-            cancelButtonColor: '#6c63ff',
+            confirmButtonColor: '#d4554a',
+            cancelButtonColor: '#d4874a',
             confirmButtonText: 'S&iacute;, eliminar',
             cancelButtonText: 'Cancelar',
-            background: '#1e1e24',
-            color: '#e0e0e0',
+            background: '#1a1714',
+            color: '#e8ddd0',
             reverseButtons: true
         }).then(function(result) {
             if (result.isConfirmed) {

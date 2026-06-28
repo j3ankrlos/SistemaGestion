@@ -33,8 +33,12 @@
                 <span class="detail-value">{{ personal.cedula or '---' }}</span>
             </div>
             <div class="detail-item">
-                <span class="detail-label">Tel&eacute;fono</span>
-                <span class="detail-value">{{ personal.telefono or '---' }}</span>
+                <span class="detail-label">Tel&eacute;fono M&oacute;vil</span>
+                <span class="detail-value">{{ personal.telefono_movil or '---' }}</span>
+            </div>
+            <div class="detail-item">
+                <span class="detail-label">Tel&eacute;fono Fijo</span>
+                <span class="detail-value">{{ personal.telefono_fijo or '---' }}</span>
             </div>
             <div class="detail-item" style="grid-column: 1 / -1;">
                 <span class="detail-label">Direcci&oacute;n</span>
@@ -43,6 +47,14 @@
             <div class="detail-item">
                 <span class="detail-label">Ciudad</span>
                 <span class="detail-value">{{ personal.ciudad or '---' }}</span>
+            </div>
+            <div class="detail-item">
+                <span class="detail-label">Estado</span>
+                <span class="detail-value">{{ personal.estado or '---' }}</span>
+            </div>
+            <div class="detail-item">
+                <span class="detail-label">Municipio</span>
+                <span class="detail-value">{{ personal.municipio or '---' }}</span>
             </div>
             <div class="detail-item">
                 <span class="detail-label">Parroquia</span>
@@ -89,6 +101,39 @@
             </div>
         </div>
     </div>
+
+    <!-- Datos Médicos (solo si existe) -->
+    {% if personal.medico %}
+    <div class="form-section">
+        <div class="form-section-title"><i class="fa-solid fa-stethoscope"></i> DATOS MÉDICOS</div>
+        <div class="detail-grid">
+            <div class="detail-item">
+                <span class="detail-label">Colegio de Médicos</span>
+                <span class="detail-value">{{ personal.medico.colegio or '---' }}</span>
+            </div>
+            <div class="detail-item">
+                <span class="detail-label">Estado</span>
+                <span class="detail-value">{{ personal.medico.estado or '---' }}</span>
+            </div>
+            <div class="detail-item">
+                <span class="detail-label">Código MPPS</span>
+                <span class="detail-value">{{ personal.medico.codigo_mpps or '---' }}</span>
+            </div>
+            <div class="detail-item">
+                <span class="detail-label">Área de Producción</span>
+                <span class="detail-value">{{ personal.medico.area_produccion or '---' }}</span>
+            </div>
+            <div class="detail-item">
+                <span class="detail-label">Unidad</span>
+                <span class="detail-value">{{ personal.medico.unidad or '---' }}</span>
+            </div>
+            <div class="detail-item">
+                <span class="detail-label">Siglas</span>
+                <span class="detail-value">{{ personal.medico.siglas or '---' }}</span>
+            </div>
+        </div>
+    </div>
+    {% endif %}
 </div>
 
 <style>

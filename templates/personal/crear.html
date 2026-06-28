@@ -47,40 +47,58 @@
                            placeholder="0000000000">
                 </div>
                 <div class="form-group">
-                    <label for="telefono">Tel&eacute;fono</label>
-                    <input type="text" id="telefono" name="telefono" class="form-control"
-                           value="{{ personal.telefono if personal and personal.telefono else '' }}"
-                           placeholder="0412-0000000">
-                </div>
-            </div>
-
-            <div class="form-row">
-                <div class="form-group">
                     <label for="direccion">Direcci&oacute;n</label>
                     <input type="text" id="direccion" name="direccion" class="form-control"
                            value="{{ personal.direccion if personal and personal.direccion else '' }}"
                            placeholder="Direcci&oacute;n de domicilio">
                 </div>
+            </div>
+
+            <div class="form-row">
                 <div class="form-group">
-                    <label for="ciudad">Ciudad</label>
-                    <input type="text" id="ciudad" name="ciudad" class="form-control"
-                           value="{{ personal.ciudad if personal and personal.ciudad else '' }}"
-                           placeholder="Ciudad">
+                    <label for="telefono_movil">Tel&eacute;fono M&oacute;vil</label>
+                    <input type="text" id="telefono_movil" name="telefono_movil" class="form-control"
+                           value="{{ personal.telefono_movil if personal and personal.telefono_movil else '' }}"
+                           placeholder="0412-0000000">
+                </div>
+                <div class="form-group">
+                    <label for="telefono_fijo">Tel&eacute;fono Fijo</label>
+                    <input type="text" id="telefono_fijo" name="telefono_fijo" class="form-control"
+                           value="{{ personal.telefono_fijo if personal and personal.telefono_fijo else '' }}"
+                           placeholder="0251-0000000">
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="id_estado">Estado</label>
+                    <select id="id_estado" name="id_estado" class="form-control">
+                        <option value="">-- Seleccione --</option>
+                        {% for e in estados %}
+                        <option value="{{ e[0] }}" {% if personal and personal.id_estado == e[0] %}selected{% endif %}>{{ e[1] }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="id_municipio">Municipio</label>
+                    <select id="id_municipio" name="id_municipio" class="form-control" disabled>
+                        <option value="">-- Seleccione un estado primero --</option>
+                    </select>
                 </div>
             </div>
 
             <div class="form-row">
                 <div class="form-group">
                     <label for="id_parroquia">Parroquia</label>
-                    <select id="id_parroquia" name="id_parroquia" class="form-control">
-                        <option value="">-- Seleccione --</option>
-                        {% for p in parroquias %}
-                        <option value="{{ p[0] }}" {% if personal and personal.id_parroquia == p[0] %}selected{% endif %}>{{ p[2] }}</option>
-                        {% endfor %}
+                    <select id="id_parroquia" name="id_parroquia" class="form-control" disabled>
+                        <option value="">-- Seleccione un municipio primero --</option>
                     </select>
                 </div>
                 <div class="form-group">
-                    <!-- Empty for alignment -->
+                    <label for="ciudad">Ciudad</label>
+                    <input type="text" id="ciudad" name="ciudad" class="form-control"
+                           value="{{ personal.ciudad if personal and personal.ciudad else '' }}"
+                           placeholder="Ciudad">
                 </div>
             </div>
         </div>
@@ -168,6 +186,57 @@
             </div>
         </div>
 
+        <!-- ═══ DATOS MÉDICOS (solo para Médico Veterinario) ═══ -->
+        <div id="detallesMedicosSection" style="display:none;">
+            <div class="form-section">
+                <div class="form-section-title">
+                    <i class="fa-solid fa-stethoscope"></i> DATOS MÉDICOS (Médico Veterinario)
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="colegio_medicos">Colegio de Médicos</label>
+                        <input type="text" id="colegio_medicos" name="colegio_medicos" class="form-control"
+                               value="{{ personal.medico.colegio if personal and personal.medico else '' }}"
+                               placeholder="N° de colegiatura">
+                    </div>
+                    <div class="form-group">
+                        <label for="estado_medico">Estado</label>
+                        <input type="text" id="estado_medico" name="estado_medico" class="form-control"
+                               value="{{ personal.medico.estado if personal and personal.medico else '' }}"
+                               placeholder="Estado de colegiatura">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="codigo_mpps">Código MPPS</label>
+                        <input type="text" id="codigo_mpps" name="codigo_mpps" class="form-control"
+                               value="{{ personal.medico.codigo_mpps if personal and personal.medico else '' }}"
+                               placeholder="Código MPPS">
+                    </div>
+                    <div class="form-group">
+                        <label for="area_produccion">Área de Producción</label>
+                        <input type="text" id="area_produccion" name="area_produccion" class="form-control"
+                               value="{{ personal.medico.area_produccion if personal and personal.medico else '' }}"
+                               placeholder="Área de producción">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="unidad_medico">Unidad</label>
+                        <input type="text" id="unidad_medico" name="unidad_medico" class="form-control"
+                               value="{{ personal.medico.unidad if personal and personal.medico else '' }}"
+                               placeholder="Unidad">
+                    </div>
+                    <div class="form-group">
+                        <label for="siglas_medico">Siglas</label>
+                        <input type="text" id="siglas_medico" name="siglas_medico" class="form-control"
+                               value="{{ personal.medico.siglas if personal and personal.medico else '' }}"
+                               placeholder="Siglas">
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Botones -->
         <div style="display:flex; gap:12px; margin-top:30px; justify-content:flex-end; padding-top:20px; border-top:1px solid var(--border);">
             <a href="{{ url_for('personal.index') }}" class="btn-secondary" style="width:auto; padding:12px 24px; text-decoration:none;">
@@ -198,6 +267,111 @@
     document.getElementById('apellidos')?.addEventListener('blur', function() {
         this.value = capitalize(this.value.trim());
     });
+
+    // Mostrar/ocultar sección de datos médicos según cargo
+    var cargoSelect = document.getElementById('id_cargo');
+    var medicoSection = document.getElementById('detallesMedicosSection');
+
+    function toggleMedicoSection() {
+        if (cargoSelect.value == '4') {
+            medicoSection.style.display = 'block';
+        } else {
+            medicoSection.style.display = 'none';
+        }
+    }
+
+    if (cargoSelect) {
+        cargoSelect.addEventListener('change', toggleMedicoSection);
+        // Estado inicial al cargar la página (para edición)
+        toggleMedicoSection();
+    }
+
+    // ─── Combos anidados: Estado → Municipio → Parroquia ───
+    var estadoSelect = document.getElementById('id_estado');
+    var municipioSelect = document.getElementById('id_municipio');
+    var parroquiaSelect = document.getElementById('id_parroquia');
+
+    // Valores pre-seleccionados (para edición)
+    var selectedMunicipio = {{ personal.id_municipio|tojson if personal and personal.id_municipio else 'null' }};
+    var selectedParroquia = {{ personal.id_parroquia|tojson if personal and personal.id_parroquia else 'null' }};
+
+    function cargarMunicipios(estadoId, seleccionado) {
+        municipioSelect.innerHTML = '<option value="">Cargando...</option>';
+        municipioSelect.disabled = true;
+        parroquiaSelect.innerHTML = '<option value="">-- Seleccione un municipio primero --</option>';
+        parroquiaSelect.disabled = true;
+
+        if (!estadoId) {
+            municipioSelect.innerHTML = '<option value="">-- Seleccione un estado primero --</option>';
+            return;
+        }
+
+        fetch('/personal/api/municipios/' + estadoId)
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                municipioSelect.innerHTML = '<option value="">-- Seleccione --</option>';
+                data.forEach(function(m) {
+                    var opt = document.createElement('option');
+                    opt.value = m.id;
+                    opt.textContent = m.nombre;
+                    if (seleccionado && m.id == seleccionado) opt.selected = true;
+                    municipioSelect.appendChild(opt);
+                });
+                municipioSelect.disabled = false;
+                // Si hay seleccionado, cargar parroquias
+                if (seleccionado) {
+                    cargarParroquias(seleccionado, selectedParroquia);
+                }
+            })
+            .catch(function() {
+                municipioSelect.innerHTML = '<option value="">Error al cargar</option>';
+            });
+    }
+
+    function cargarParroquias(municipioId, seleccionado) {
+        parroquiaSelect.innerHTML = '<option value="">Cargando...</option>';
+        parroquiaSelect.disabled = true;
+
+        if (!municipioId) {
+            parroquiaSelect.innerHTML = '<option value="">-- Seleccione un municipio primero --</option>';
+            return;
+        }
+
+        fetch('/personal/api/parroquias/' + municipioId)
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                parroquiaSelect.innerHTML = '<option value="">-- Seleccione --</option>';
+                data.forEach(function(p) {
+                    var opt = document.createElement('option');
+                    opt.value = p.id;
+                    opt.textContent = p.nombre;
+                    if (seleccionado && p.id == seleccionado) opt.selected = true;
+                    parroquiaSelect.appendChild(opt);
+                });
+                parroquiaSelect.disabled = false;
+            })
+            .catch(function() {
+                parroquiaSelect.innerHTML = '<option value="">Error al cargar</option>';
+            });
+    }
+
+    if (estadoSelect) {
+        estadoSelect.addEventListener('change', function() {
+            cargarMunicipios(this.value, null);
+        });
+
+        // Cargar municipios si hay estado preseleccionado (edición)
+        var estadoInicial = estadoSelect.value;
+        if (estadoInicial && selectedMunicipio) {
+            cargarMunicipios(estadoInicial, selectedMunicipio);
+        }
+    }
+
+    if (municipioSelect) {
+        municipioSelect.addEventListener('change', function() {
+            cargarParroquias(this.value, null);
+        });
+    }
 })();
 </script>
 {% endblock %}

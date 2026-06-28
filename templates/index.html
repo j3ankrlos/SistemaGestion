@@ -1,0 +1,294 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="dashboard">
+    <!-- Cabecera del dashboard -->
+    <div class="dashboard-header">
+        <div>
+            <h1 class="dashboard-title">
+                <i class="fa-solid fa-gauge-high"></i> Panel de Control
+            </h1>
+            <p class="dashboard-subtitle">Resumen general del sistema</p>
+        </div>
+        <button class="dashboard-refresh" id="btnRefresh" title="Actualizar datos">
+            <i class="fa-solid fa-rotate"></i> Actualizar
+        </button>
+    </div>
+
+    <!-- Grid de tarjetas KPI -->
+    <div class="kpi-grid" id="kpiGrid">
+        <!-- Personal Total -->
+        <div class="kpi-card" data-type="personal">
+            <div class="kpi-icon" style="--kpi-color: var(--accent);">
+                <i class="fa-solid fa-address-book"></i>
+            </div>
+            <div class="kpi-body">
+                <span class="kpi-value" id="kpiTotalPersonal">—</span>
+                <span class="kpi-label">Total Personal</span>
+            </div>
+            <div class="kpi-trend" id="kpiPersonalActivo">
+                <span class="kpi-trend-dot active"></span> <span id="kpiPersonalActivoText">—</span> activos
+            </div>
+        </div>
+
+        <!-- Personal Activo -->
+        <div class="kpi-card" data-type="activo">
+            <div class="kpi-icon" style="--kpi-color: var(--success);">
+                <i class="fa-solid fa-circle-check"></i>
+            </div>
+            <div class="kpi-body">
+                <span class="kpi-value" id="kpiPersonalActivoVal">—</span>
+                <span class="kpi-label">Personal Activo</span>
+            </div>
+            <div class="kpi-trend">
+                <span class="kpi-trend-dot active"></span> <span id="kpiPersonalActivoPct">—</span> del total
+            </div>
+        </div>
+
+        <!-- Personal Inactivo -->
+        <div class="kpi-card" data-type="inactivo">
+            <div class="kpi-icon" style="--kpi-color: var(--danger);">
+                <i class="fa-solid fa-circle-pause"></i>
+            </div>
+            <div class="kpi-body">
+                <span class="kpi-value" id="kpiPersonalInactivoVal">—</span>
+                <span class="kpi-label">Personal Inactivo</span>
+            </div>
+            <div class="kpi-trend">
+                <span class="kpi-trend-dot inactive"></span> <span id="kpiPersonalInactivoPct">—</span> del total
+            </div>
+        </div>
+
+        <!-- Total Usuarios -->
+        <div class="kpi-card" data-type="usuarios">
+            <div class="kpi-icon" style="--kpi-color: var(--accent);">
+                <i class="fa-solid fa-users"></i>
+            </div>
+            <div class="kpi-body">
+                <span class="kpi-value" id="kpiTotalUsuarios">—</span>
+                <span class="kpi-label">Total Usuarios</span>
+            </div>
+            <div class="kpi-trend">
+                <span class="kpi-trend-dot active"></span> <span id="kpiUsuariosActivosText">—</span> activos
+            </div>
+        </div>
+
+        <!-- Usuarios por Rol -->
+        <div class="kpi-card" data-type="roles">
+            <div class="kpi-icon" style="--kpi-color: var(--accent);">
+                <i class="fa-solid fa-shield-halved"></i>
+            </div>
+            <div class="kpi-body">
+                <span class="kpi-value" id="kpiTotalRoles">—</span>
+                <span class="kpi-label">Roles del Sistema</span>
+            </div>
+            <div class="kpi-trend">
+                <i class="fa-solid fa-arrow-right" style="color:var(--accent);font-size:0.65rem;"></i> <span id="kpiRolesDistText">—</span>
+            </div>
+        </div>
+
+        <!-- Personal sin usuario -->
+        <div class="kpi-card" data-type="sinusuario">
+            <div class="kpi-icon" style="--kpi-color: #d4a84a;">
+                <i class="fa-solid fa-user-plus"></i>
+            </div>
+            <div class="kpi-body">
+                <span class="kpi-value" id="kpiSinUsuario">—</span>
+                <span class="kpi-label">Sin Usuario Asignado</span>
+            </div>
+            <div class="kpi-trend">
+                <span id="kpiSinUsuarioPct">—</span> del personal
+            </div>
+        </div>
+    </div>
+
+    <!-- Distribuciones -->
+    <div class="dashboard-grid">
+        <div class="card dist-card">
+            <div class="card-header">
+                <h3 class="dist-title">
+                    <i class="fa-solid fa-chart-simple"></i> Personal por Estatus
+                </h3>
+            </div>
+            <div class="table-responsive">
+                <table class="dist-table" id="estatusTable">
+                    <thead>
+                        <tr>
+                            <th>Estatus</th>
+                            <th style="text-align:center;">Cantidad</th>
+                            <th style="text-align:right;">%</th>
+                        </tr>
+                    </thead>
+                    <tbody id="estatusTableBody">
+                        <tr><td colspan="3" class="table-loading"><div class="spinner"></div></td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card dist-card">
+            <div class="card-header">
+                <h3 class="dist-title">
+                    <i class="fa-solid fa-chart-simple"></i> Usuarios por Rol
+                </h3>
+            </div>
+            <div class="table-responsive">
+                <table class="dist-table" id="rolesTable">
+                    <thead>
+                        <tr>
+                            <th>Rol</th>
+                            <th style="text-align:center;">Cantidad</th>
+                            <th style="text-align:right;">%</th>
+                        </tr>
+                    </thead>
+                    <tbody id="rolesTableBody">
+                        <tr><td colspan="3" class="table-loading"><div class="spinner"></div></td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+    'use strict';
+
+    var state = {
+        loading: false,
+        data: null,
+    };
+
+    function loadStats() {
+        if (state.loading) return;
+        state.loading = true;
+
+        var btn = document.getElementById('btnRefresh');
+        if (btn) {
+            btn.classList.add('loading');
+            btn.disabled = true;
+        }
+
+        fetch('/api/dashboard-stats')
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                state.data = data;
+                if (data.success) {
+                    renderKPIs(data);
+                    renderEstatusDist(data.estatus_dist, data.total_personal);
+                    renderRolesDist(data.roles_dist, data.total_usuarios);
+                } else {
+                    showError(data.error || 'Error al cargar estadísticas');
+                }
+            })
+            .catch(function(err) {
+                showError('Error de conexión: ' + err.message);
+            })
+            .finally(function() {
+                state.loading = false;
+                if (btn) {
+                    btn.classList.remove('loading');
+                    btn.disabled = false;
+                }
+            });
+    }
+
+    function renderKPIs(data) {
+        setText('kpiTotalPersonal', data.total_personal);
+        setText('kpiPersonalActivoVal', data.personal_activo);
+        setText('kpiPersonalInactivoVal', data.personal_inactivo);
+        setText('kpiTotalUsuarios', data.total_usuarios);
+        setText('kpiTotalRoles', data.total_roles);
+        setText('kpiSinUsuario', data.personal_sin_usuario);
+
+        setText('kpiPersonalActivoText', data.personal_activo);
+        setText('kpiPersonalInactivoPct', pct(data.personal_inactivo, data.total_personal));
+        setText('kpiPersonalActivoPct', pct(data.personal_activo, data.total_personal));
+        setText('kpiUsuariosActivosText', data.usuarios_activos);
+        setText('kpiSinUsuarioPct', pct(data.personal_sin_usuario, data.total_personal));
+
+        // Texto para roles distribution
+        if (data.roles_dist && data.roles_dist.length > 0) {
+            var topRol = data.roles_dist[0];
+            setText('kpiRolesDistText', topRol.rol + ' (' + topRol.total + ')');
+        } else {
+            setText('kpiRolesDistText', 'Sin datos');
+        }
+    }
+
+    function renderEstatusDist(dist, total) {
+        var tbody = document.getElementById('estatusTableBody');
+        if (!dist || dist.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="3" class="table-empty">Sin datos</td></tr>';
+            return;
+        }
+        var html = '';
+        dist.forEach(function(item) {
+            var esActivo = item.estatus && item.estatus.toUpperCase().includes('ACTIVO');
+            var badgeClass = esActivo ? 'active' : 'inactive';
+            html += '<tr>' +
+                '<td><span class="status-dot ' + badgeClass + '" style="margin-right:8px;"></span> ' + escapeHtml(item.estatus) + '</td>' +
+                '<td style="text-align:center;font-weight:600;">' + item.total + '</td>' +
+                '<td style="text-align:right;color:var(--text-secondary);">' + pct(item.total, total) + '</td>' +
+                '</tr>';
+        });
+        tbody.innerHTML = html;
+    }
+
+    function renderRolesDist(dist, total) {
+        var tbody = document.getElementById('rolesTableBody');
+        if (!dist || dist.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="3" class="table-empty">Sin datos</td></tr>';
+            return;
+        }
+        var html = '';
+        dist.forEach(function(item) {
+            html += '<tr>' +
+                '<td><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--accent);margin-right:8px;"></span> ' + escapeHtml(item.rol) + '</td>' +
+                '<td style="text-align:center;font-weight:600;">' + item.total + '</td>' +
+                '<td style="text-align:right;color:var(--text-secondary);">' + pct(item.total, total) + '</td>' +
+                '</tr>';
+        });
+        tbody.innerHTML = html;
+    }
+
+    // ─── Helpers ───
+    function setText(id, val) {
+        var el = document.getElementById(id);
+        if (el) el.textContent = val != null ? val : '—';
+    }
+
+    function pct(value, total) {
+        if (!total || total === 0) return '0%';
+        return (value / total * 100).toFixed(1) + '%';
+    }
+
+    function escapeHtml(text) {
+        if (!text) return '';
+        var d = document.createElement('div');
+        d.textContent = text;
+        return d.innerHTML;
+    }
+
+    function showError(msg) {
+        // Mostrar en las tablas
+        ['estatusTableBody', 'rolesTableBody'].forEach(function(id) {
+            var el = document.getElementById(id);
+            if (el) el.innerHTML = '<tr><td colspan="3" class="table-empty" style="color:var(--danger);"><i class="fa-solid fa-exclamation-triangle"></i><p>' + escapeHtml(msg) + '</p></td></tr>';
+        });
+    }
+
+    // ─── Init ───
+    document.addEventListener('DOMContentLoaded', function() {
+        loadStats();
+
+        var btn = document.getElementById('btnRefresh');
+        if (btn) {
+            btn.addEventListener('click', loadStats);
+        }
+    });
+})();
+</script>
+{% endblock %}

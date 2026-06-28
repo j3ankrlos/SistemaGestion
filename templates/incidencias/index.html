@@ -1,0 +1,411 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="page-header">
+    <div>
+        <h1 class="page-title">
+            <i class="fa-solid fa-triangle-exclamation"></i> Incidencias
+        </h1>
+        <p class="page-subtitle">Registro de reposos, vacaciones y permisos del personal</p>
+    </div>
+    {% if 'incidencias.crear' in session.get('permisos', []) %}
+    <button class="btn btn-primary btn-sm btn-icon" id="btnNuevaIncidencia">
+        <i class="fa-solid fa-plus"></i> Nueva Incidencia
+    </button>
+    {% endif %}
+</div>
+
+<!-- Filtros -->
+<div class="filters-bar">
+    <div class="search-bar">
+        <i class="fa-solid fa-search search-icon"></i>
+        <input type="text" class="form-control" id="searchInput" placeholder="Buscar por nombre, cédula o tipo de incidencia...">
+        <button class="btn-search-clear" id="searchClear" style="display:none;">
+            <i class="fa-solid fa-xmark"></i>
+        </button>
+    </div>
+    <div class="filter-group">
+        <select class="form-control form-control-sm" id="filtroTipo">
+            <option value="">Todos los tipos</option>
+            {% for t in tipos %}
+            <option value="{{ t[0] }}">{{ t[1] }} ({{ t[2] }})</option>
+            {% endfor %}
+        </select>
+    </div>
+</div>
+
+<!-- Tabla -->
+<div class="table-responsive">
+    <table class="table table-hover" id="incidenciasTable">
+        <thead>
+            <tr>
+                <th style="width:50px;">#</th>
+                <th>Incidencia</th>
+                <th>Personal</th>
+                <th>Cédula</th>
+                <th>Registrado por</th>
+                <th>Fecha Inicio</th>
+                <th>Fecha Fin</th>
+                <th>Estado</th>
+                <th style="width:80px;">Acción</th>
+            </tr>
+        </thead>
+        <tbody id="tableBody">
+            <tr><td colspan="8" class="table-loading"><div class="spinner"></div></td></tr>
+        </tbody>
+    </table>
+</div>
+
+<!-- Paginación -->
+<div class="pagination-wrapper" id="paginationWrapper" style="display:none;">
+    <div class="pagination-info" id="paginationInfo"></div>
+    <div class="pagination-controls" id="paginationControls"></div>
+</div>
+
+<!-- Modal: Nueva Incidencia -->
+<div class="modal-overlay" id="modalNueva" style="display:none;">
+    <div class="modal-content modal-md">
+        <div class="modal-header">
+            <h3><i class="fa-solid fa-plus"></i> Registrar Incidencia</h3>
+            <button class="modal-close" id="modalNuevaClose">&times;</button>
+        </div>
+        <form id="formNuevaIncidencia" autocomplete="off">
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="selTipo">Tipo de Incidencia</label>
+                    <select class="form-control" id="selTipo" required>
+                        <option value="">Seleccione...</option>
+                        {% for t in tipos %}
+                        <option value="{{ t[0] }}">{{ t[1] }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="selPersonal">Personal</label>
+                    <select class="form-control" id="selPersonal" required>
+                        <option value="">Seleccione...</option>
+                        {% for p in personal %}
+                        <option value="{{ p[0] }}">{{ p[1] }} {{ p[2] }} - {{ p[3] }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="fechaInicio">Fecha Inicio</label>
+                        <input type="date" class="form-control" id="fechaInicio" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="fechaFin">Fecha Fin <span class="field-optional">(opcional)</span></label>
+                        <input type="date" class="form-control" id="fechaFin">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="observacion">Observación <span class="field-optional">(opcional)</span></label>
+                    <textarea class="form-control" id="observacion" rows="2" placeholder="Nota adicional..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" id="btnCancelarNueva">Cancelar</button>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fa-solid fa-check"></i> Registrar
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal: Confirmar eliminación -->
+<div class="modal-overlay" id="modalEliminar" style="display:none;">
+    <div class="modal-content modal-md">
+        <div class="modal-header">
+            <h3><i class="fa-solid fa-trash-can"></i> Eliminar Incidencia</h3>
+            <button class="modal-close" id="modalEliminarClose">&times;</button>
+        </div>
+        <div class="modal-body">
+            <p class="confirm-msg">¿Estás seguro de eliminar esta incidencia?</p>
+            <p class="confirm-detail" id="eliminarDetail"></p>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" id="btnCancelarEliminar">Cancelar</button>
+            <button type="button" class="btn btn-danger" id="btnConfirmarEliminar">
+                <i class="fa-solid fa-trash-can"></i> Eliminar
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+    'use strict';
+
+    // ─── Estado ───
+    var state = {
+        page: 1,
+        search: '',
+        tipo: '',
+        loading: false,
+        eliminarId: null,
+    };
+
+    var PER_PAGE = 15;
+
+    // ─── Cargar datos ───
+    function loadData() {
+        if (state.loading) return;
+        state.loading = true;
+
+        var tbody = document.getElementById('tableBody');
+        tbody.innerHTML = '<tr><td colspan="9" class="table-loading"><div class="spinner"></div></td></tr>';
+
+        var params = new URLSearchParams();
+        params.set('page', state.page);
+        params.set('search', state.search);
+        params.set('tipo', state.tipo);
+
+        fetch('/incidencias/data?' + params.toString())
+            .then(function(r) { return r.json(); })
+            .then(function(resp) {
+                renderTable(resp);
+                renderPagination(resp);
+            })
+            .catch(function(err) {
+                tbody.innerHTML = '<tr><td colspan="9" class="table-empty"><i class="fa-solid fa-exclamation-triangle"></i> Error al cargar datos</td></tr>';
+            })
+            .finally(function() {
+                state.loading = false;
+            });
+    }
+
+    function renderTable(resp) {
+        var tbody = document.getElementById('tableBody');
+        if (!resp.data || resp.data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="9" class="table-empty"><i class="fa-solid fa-inbox"></i> No se encontraron incidencias</td></tr>';
+            return;
+        }
+
+        var html = '';
+        resp.data.forEach(function(item) {
+            var estadoHtml = item.status == 1
+                ? '<span class="status-badge active"><span class="status-dot active"></span> Activo</span>'
+                : '<span class="status-badge inactive"><span class="status-dot inactive"></span> Finalizado</span>';
+
+            var acciones = '';
+            if ({{ 'true' if 'incidencias.eliminar' in session.get('permisos', []) else 'false' }}) {
+                acciones = '<button class="btn btn-sm btn-danger btn-eliminar" data-id="' + item.id + '" data-desc="' + escapeHtml(item.incidencia) + ' - ' + escapeHtml(item.nombres) + ' ' + escapeHtml(item.apellidos) + '"><i class="fa-solid fa-trash-can"></i></button>';
+            }
+
+            html += '<tr>' +
+                '<td>' + item.id + '</td>' +
+                '<td><strong>' + escapeHtml(item.incidencia) + '</strong> <span class="sigla-badge">' + escapeHtml(item.sigla) + '</span></td>' +
+                '<td>' + escapeHtml(item.nombres) + ' ' + escapeHtml(item.apellidos) + '</td>' +
+                '<td>' + escapeHtml(item.cedula) + '</td>' +
+                '<td><i class="fa-regular fa-user"></i> ' + escapeHtml(item.registrado_por) + '</td>' +
+                '<td>' + item.fecha_inicio + '</td>' +
+                '<td>' + (item.fecha_fin || '—') + '</td>' +
+                '<td>' + estadoHtml + '</td>' +
+                '<td class="actions-cell">' + acciones + '</td>' +
+                '</tr>';
+        });
+        tbody.innerHTML = html;
+    }
+
+    function renderPagination(resp) {
+        var wrapper = document.getElementById('paginationWrapper');
+        var info = document.getElementById('paginationInfo');
+        var controls = document.getElementById('paginationControls');
+
+        if (resp.total_pages <= 1) {
+            wrapper.style.display = 'none';
+            return;
+        }
+        wrapper.style.display = 'flex';
+
+        info.textContent = 'Página ' + resp.page + ' de ' + resp.total_pages + ' (' + resp.total + ' registros)';
+
+        var html = '';
+        // Anterior
+        html += '<button class="btn-page" ' + (resp.page <= 1 ? 'disabled' : '') + ' data-page="' + (resp.page - 1) + '"><i class="fa-solid fa-chevron-left"></i></button>';
+
+        for (var i = 1; i <= resp.total_pages; i++) {
+            if (i === 1 || i === resp.total_pages || Math.abs(i - resp.page) <= 1) {
+                html += '<button class="btn-page ' + (i === resp.page ? 'active' : '') + '" data-page="' + i + '">' + i + '</button>';
+            } else if (html.slice(-12) !== 'class="dots"') {
+                html += '<span class="dots">…</span>';
+            }
+        }
+
+        // Siguiente
+        html += '<button class="btn-page" ' + (resp.page >= resp.total_pages ? 'disabled' : '') + ' data-page="' + (resp.page + 1) + '"><i class="fa-solid fa-chevron-right"></i></button>';
+
+        controls.innerHTML = html;
+    }
+
+    // ─── Helpers ───
+    function escapeHtml(text) {
+        if (!text) return '';
+        var d = document.createElement('div');
+        d.textContent = text;
+        return d.innerHTML;
+    }
+
+    // ─── Modales ───
+    function openModal(id) {
+        document.getElementById(id).style.display = 'flex';
+    }
+
+    function closeModal(id) {
+        document.getElementById(id).style.display = 'none';
+    }
+
+    // ─── Eventos ───
+    document.addEventListener('DOMContentLoaded', function() {
+        loadData();
+
+        // Búsqueda
+        var searchInput = document.getElementById('searchInput');
+        var searchClear = document.getElementById('searchClear');
+        var filtroTipo = document.getElementById('filtroTipo');
+
+        function onSearch() {
+            state.search = searchInput.value.trim();
+            state.page = 1;
+            loadData();
+            searchClear.style.display = state.search ? 'block' : 'none';
+        }
+
+        var searchTimer = null;
+        searchInput.addEventListener('input', function() {
+            clearTimeout(searchTimer);
+            searchTimer = setTimeout(onSearch, 300);
+        });
+
+        searchClear.addEventListener('click', function() {
+            searchInput.value = '';
+            onSearch();
+        });
+
+        filtroTipo.addEventListener('change', function() {
+            state.tipo = this.value;
+            state.page = 1;
+            loadData();
+        });
+
+        // Paginación (delegación)
+        document.getElementById('paginationControls').addEventListener('click', function(e) {
+            var btn = e.target.closest('.btn-page');
+            if (btn && !btn.disabled) {
+                state.page = parseInt(btn.dataset.page);
+                loadData();
+            }
+        });
+
+        // === Modal Nueva Incidencia ===
+        var btnNueva = document.getElementById('btnNuevaIncidencia');
+        if (btnNueva) {
+            btnNueva.addEventListener('click', function() {
+                document.getElementById('formNuevaIncidencia').reset();
+                openModal('modalNueva');
+            });
+        }
+
+        document.getElementById('modalNuevaClose').addEventListener('click', function() {
+            closeModal('modalNueva');
+        });
+        document.getElementById('btnCancelarNueva').addEventListener('click', function() {
+            closeModal('modalNueva');
+        });
+        document.getElementById('modalNueva').addEventListener('click', function(e) {
+            if (e.target === this) closeModal('modalNueva');
+        });
+
+        // Submit nueva incidencia
+        document.getElementById('formNuevaIncidencia').addEventListener('submit', function(e) {
+            e.preventDefault();
+
+            var data = new URLSearchParams();
+            data.set('id_incidencia', document.getElementById('selTipo').value);
+            data.set('id_personal', document.getElementById('selPersonal').value);
+            data.set('fecha_inicio', document.getElementById('fechaInicio').value);
+            data.set('fecha_fin', document.getElementById('fechaFin').value);
+            data.set('observacion', document.getElementById('observacion').value);
+
+            fetch('/incidencias/crear', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                body: data.toString()
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(resp) {
+                if (resp.success) {
+                    closeModal('modalNueva');
+                    loadData();
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({icon:'success', title:'Registrada', text:resp.message, timer:2000, showConfirmButton:false});
+                    }
+                } else {
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({icon:'error', title:'Error', text:resp.error});
+                    }
+                }
+            })
+            .catch(function(err) {
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({icon:'error', title:'Error', text:'Error de conexión'});
+                }
+            });
+        });
+
+        // === Modal Eliminar ===
+        document.getElementById('tableBody').addEventListener('click', function(e) {
+            var btn = e.target.closest('.btn-eliminar');
+            if (btn) {
+                state.eliminarId = parseInt(btn.dataset.id);
+                document.getElementById('eliminarDetail').textContent = btn.dataset.desc;
+                openModal('modalEliminar');
+            }
+        });
+
+        document.getElementById('modalEliminarClose').addEventListener('click', function() {
+            closeModal('modalEliminar');
+        });
+        document.getElementById('btnCancelarEliminar').addEventListener('click', function() {
+            closeModal('modalEliminar');
+        });
+        document.getElementById('modalEliminar').addEventListener('click', function(e) {
+            if (e.target === this) closeModal('modalEliminar');
+        });
+
+        document.getElementById('btnConfirmarEliminar').addEventListener('click', function() {
+            if (!state.eliminarId) return;
+
+            fetch('/incidencias/' + state.eliminarId + '/eliminar', {
+                method: 'POST'
+            })
+            .then(function(r) { return r.json(); })
+            .then(function(resp) {
+                if (resp.success) {
+                    closeModal('modalEliminar');
+                    state.eliminarId = null;
+                    loadData();
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({icon:'success', title:'Eliminada', text:resp.message, timer:2000, showConfirmButton:false});
+                    }
+                } else {
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({icon:'error', title:'Error', text:resp.error});
+                    }
+                }
+            })
+            .catch(function(err) {
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({icon:'error', title:'Error', text:'Error de conexión'});
+                }
+            });
+        });
+
+    });
+})();
+</script>
+{% endblock %}

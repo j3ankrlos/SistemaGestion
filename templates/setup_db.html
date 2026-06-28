@@ -4,9 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Configuración de Base de Datos - Sistema Porcino</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='fonts/inter.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='fontawesome/css/all.min.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='sweetalert2/sweetalert2.min.css') }}">
     <style>
         .auth-card {
@@ -17,7 +17,7 @@
         }
         .auth-card .subtitle {
             text-align: center;
-            color: var(--text-secondary);
+            color: var(--auth-text-secondary, #a69583);
             font-size: 0.9rem;
             margin-bottom: 25px;
             line-height: 1.5;
@@ -27,31 +27,34 @@
             gap: 0;
         }
         .input-group .form-control {
-            border-radius: 6px 0 0 6px;
+            border-radius: 10px 0 0 10px;
             flex: 1;
         }
         .input-group .btn-secondary {
             padding: 12px 16px;
             background-color: var(--bg-tertiary);
             color: var(--text-primary);
-            border: 1px solid var(--border);
+            border: 1px solid var(--auth-border, #3a2d24);
             border-left: none;
-            border-radius: 0 6px 6px 0;
+            border-radius: 0 10px 10px 0;
             font-size: 0.9rem;
             cursor: pointer;
             transition: all 0.2s ease;
             white-space: nowrap;
         }
         .input-group .btn-secondary:hover {
-            background-color: var(--accent);
-            color: #fff;
+            background-color: var(--auth-accent, #d4874a);
+            color: #1a1410;
+        }
+        .setup-title-icon {
+            color: var(--auth-accent, #d4874a);
         }
     </style>
 </head>
 <body>
     <div class="auth-container">
         <div class="auth-card">
-            <h2><i class="fa-solid fa-database" style="color: var(--accent); margin-right: 10px;"></i>Conexión a Base de Datos</h2>
+            <h2><i class="fa-solid fa-database setup-title-icon"></i> Conexión a Base de Datos</h2>
             <p class="subtitle">
                 El sistema no detecta una conexión a la base de datos Access.<br>
                 Selecciona el archivo de base de datos para continuar.
@@ -89,10 +92,10 @@
                         icon: 'error',
                         title: 'Error',
                         text: errorMsg,
-                        background: '#1e1e24',
-                        color: '#e0e0e0',
-                        iconColor: '#ff4757',
-                        confirmButtonColor: '#6c63ff'
+                        background: '#1a1714',
+                        color: '#e8ddd0',
+                        iconColor: '#d4554a',
+                        confirmButtonColor: '#d4874a'
                     });
                 }
             }
@@ -102,11 +105,11 @@
             try {
                 Swal.fire({
                     title: 'Abriendo explorador de archivos...',
-                    html: '<p style="color: #e0e0e0;">Revisa <strong>detrás de esta ventana</strong> o en la <strong>barra de tareas</strong> de Windows.</p><p style="color: #a0a0a0; font-size: 0.85rem;">Si no aparece, busca la ventana "Abrir" o "Seleccionar archivo" en la barra de tareas.</p>',
+                    html: '<p style="color: #e8ddd0;">Revisa <strong>detrás de esta ventana</strong> o en la <strong>barra de tareas</strong> de Windows.</p><p style="color: #a69583; font-size: 0.85rem;">Si no aparece, busca la ventana "Abrir" o "Seleccionar archivo" en la barra de tareas.</p>',
                     allowOutsideClick: false,
-                    background: '#1e1e24',
-                    color: '#e0e0e0',
-                    iconColor: '#6c63ff',
+                    background: '#1a1714',
+                    color: '#e8ddd0',
+                    iconColor: '#d4874a',
                     didOpen: () => {
                         Swal.showLoading()
                     }
@@ -124,10 +127,10 @@
                         icon: 'error',
                         title: 'Error',
                         text: data.error || 'Error al seleccionar archivo',
-                        background: '#1e1e24',
-                        color: '#e0e0e0',
-                        iconColor: '#ff4757',
-                        confirmButtonColor: '#6c63ff'
+                        background: '#1a1714',
+                        color: '#e8ddd0',
+                        iconColor: '#d4554a',
+                        confirmButtonColor: '#d4874a'
                     });
                 }
             } catch (err) {
@@ -136,10 +139,10 @@
                     icon: 'error',
                     title: 'Error',
                     text: 'No se pudo abrir el selector de archivos',
-                    background: '#1e1e24',
-                    color: '#e0e0e0',
-                    iconColor: '#ff4757',
-                    confirmButtonColor: '#6c63ff'
+                    background: '#1a1714',
+                    color: '#e8ddd0',
+                    iconColor: '#d4554a',
+                    confirmButtonColor: '#d4874a'
                 });
             }
         });

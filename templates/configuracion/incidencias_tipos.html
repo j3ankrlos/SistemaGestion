@@ -1,0 +1,280 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="card catalog-section" style="max-width:700px; margin:0 auto;">
+    <div class="card-header">
+        <h3><i class="fa-solid fa-triangle-exclamation"></i> Administrar Tipos de Incidencia</h3>
+    </div>
+    <p style="color:var(--text-secondary); margin-bottom:20px; font-size:0.9rem;">
+        Gestiona los conceptos de incidencia disponibles para registrar al personal
+        (reposos, vacaciones, permisos, etc.).
+    </p>
+
+    {% if 'incidencias.crear' in session.get('permisos', []) %}
+    <form id="formNuevoTipo" class="catalog-form">
+        <div class="catalog-form-row">
+            <div class="form-group">
+                <label for="nuevoTipoNombre">Nombre</label>
+                <input type="text" class="form-control" id="nuevoTipoNombre" placeholder="Ej: Permiso Estudio" required>
+            </div>
+            <div class="form-group">
+                <label for="nuevoTipoSigla">Sigla</label>
+                <input type="text" class="form-control" id="nuevoTipoSigla" placeholder="Ej: EST" maxlength="10" style="width:120px;" required>
+            </div>
+            <div class="form-group catalog-btn-wrap">
+                <button type="submit" class="btn btn-primary btn-sm">
+                    <i class="fa-solid fa-plus"></i> Agregar
+                </button>
+            </div>
+        </div>
+    </form>
+    {% endif %}
+
+    <div class="table-responsive">
+        <table class="table" id="tablaTipos">
+            <thead>
+                <tr>
+                    <th style="width:50px;">#</th>
+                    <th>Nombre</th>
+                    <th style="width:100px;">Sigla</th>
+                    <th style="width:140px;">Acción</th>
+                </tr>
+            </thead>
+            <tbody id="tiposBody">
+                <tr><td colspan="4" class="table-loading"><div class="spinner"></div></td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Modal: Editar Tipo -->
+<div class="modal-overlay" id="modalEditarTipo" style="display:none;">
+    <div class="modal-content modal-md">
+        <div class="modal-header">
+            <h3><i class="fa-solid fa-pen"></i> Editar Tipo de Incidencia</h3>
+            <button class="modal-close" id="modalEditarClose">&times;</button>
+        </div>
+        <form id="formEditarTipo" autocomplete="off">
+            <div class="modal-body">
+                <input type="hidden" id="editarId" value="">
+                <div class="form-group">
+                    <label for="editarNombre">Nombre</label>
+                    <input type="text" class="form-control" id="editarNombre" placeholder="Nombre del tipo" required>
+                </div>
+                <div class="form-group">
+                    <label for="editarSigla">Sigla</label>
+                    <input type="text" class="form-control" id="editarSigla" placeholder="Sigla" maxlength="10" style="width:120px;" required>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" id="btnCancelarEditar">Cancelar</button>
+                <button type="submit" class="btn btn-primary">
+                    <i class="fa-solid fa-check"></i> Guardar Cambios
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+    'use strict';
+
+    function escapeHtml(text) {
+        if (!text) return '';
+        var d = document.createElement('div');
+        d.textContent = text;
+        return d.innerHTML;
+    }
+
+    function loadTipos() {
+        var tbody = document.getElementById('tiposBody');
+        if (!tbody) return;
+        tbody.innerHTML = '<tr><td colspan="4" class="table-loading"><div class="spinner"></div></td></tr>';
+
+        fetch('/incidencias/api/tipos')
+            .then(function(r) { return r.json(); })
+            .then(function(data) {
+                if (!data || data.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="4" class="table-empty"><i class="fa-solid fa-inbox"></i> No hay tipos registrados</td></tr>';
+                    return;
+                }
+                var html = '';
+                data.forEach(function(t) {
+                    var btnEditar = '<button class="btn btn-edit btn-editar-tipo" data-id="' + t.id + '" data-nombre="' + escapeHtml(t.nombre) + '" data-sigla="' + escapeHtml(t.sigla) + '"><i class="fa-solid fa-pen"></i></button>';
+                    var btnEliminar = {{ 'true' if 'incidencias.eliminar' in session.get('permisos', []) else 'false' }}
+                        ? '<button class="btn btn-sm btn-danger btn-eliminar-tipo" data-id="' + t.id + '" data-nombre="' + escapeHtml(t.nombre) + '"><i class="fa-solid fa-trash-can"></i></button>'
+                        : '';
+                    html += '<tr>' +
+                        '<td>' + t.id + '</td>' +
+                        '<td>' + escapeHtml(t.nombre) + '</td>' +
+                        '<td><span class="sigla-badge">' + escapeHtml(t.sigla) + '</span></td>' +
+                        '<td class="actions-cell">' + btnEditar + ' ' + btnEliminar + '</td>' +
+                        '</tr>';
+                });
+                tbody.innerHTML = html;
+            })
+            .catch(function() {
+                tbody.innerHTML = '<tr><td colspan="4" class="table-empty"><i class="fa-solid fa-exclamation-triangle"></i> Error al cargar</td></tr>';
+            });
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        loadTipos();
+
+        // Submit nuevo tipo
+        var formTipo = document.getElementById('formNuevoTipo');
+        if (formTipo) {
+            formTipo.addEventListener('submit', function(e) {
+                e.preventDefault();
+                var nombre = document.getElementById('nuevoTipoNombre').value.trim();
+                var sigla = document.getElementById('nuevoTipoSigla').value.trim().toUpperCase();
+                if (!nombre || !sigla) return;
+
+                var data = new URLSearchParams();
+                data.set('nombre', nombre);
+                data.set('sigla', sigla);
+
+                fetch('/incidencias/api/tipos/crear', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                    body: data.toString()
+                })
+                .then(function(r) { return r.json(); })
+                .then(function(resp) {
+                    if (resp.success) {
+                        formTipo.reset();
+                        loadTipos();
+                        if (typeof Swal !== 'undefined') {
+                            Swal.fire({icon:'success', title:'Creado', text:resp.message, timer:1500, showConfirmButton:false});
+                        }
+                    } else {
+                        if (typeof Swal !== 'undefined') {
+                            Swal.fire({icon:'error', title:'Error', text:resp.error});
+                        }
+                    }
+                })
+                .catch(function() {
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({icon:'error', title:'Error', text:'Error de conexión'});
+                    }
+                });
+            });
+        }
+
+        // ─── Modal helpers ───
+        function openModal(id) {
+            document.getElementById(id).style.display = 'flex';
+        }
+        function closeModal(id) {
+            document.getElementById(id).style.display = 'none';
+        }
+
+        // ─── Editar tipo ───
+        function setupEditModal() {
+            var tabla = document.getElementById('tablaTipos');
+            if (!tabla) return;
+
+            tabla.addEventListener('click', function(e) {
+                var btn = e.target.closest('.btn-editar-tipo');
+                if (!btn) return;
+
+                document.getElementById('editarId').value = btn.dataset.id;
+                document.getElementById('editarNombre').value = btn.dataset.nombre;
+                document.getElementById('editarSigla').value = btn.dataset.sigla;
+                openModal('modalEditarTipo');
+            });
+
+            document.getElementById('modalEditarClose').addEventListener('click', function() {
+                closeModal('modalEditarTipo');
+            });
+            document.getElementById('btnCancelarEditar').addEventListener('click', function() {
+                closeModal('modalEditarTipo');
+            });
+            document.getElementById('modalEditarTipo').addEventListener('click', function(e) {
+                if (e.target === this) closeModal('modalEditarTipo');
+            });
+
+            document.getElementById('formEditarTipo').addEventListener('submit', function(e) {
+                e.preventDefault();
+                var id = parseInt(document.getElementById('editarId').value);
+                var nombre = document.getElementById('editarNombre').value.trim();
+                var sigla = document.getElementById('editarSigla').value.trim().toUpperCase();
+                if (!nombre || !sigla) return;
+
+                var data = new URLSearchParams();
+                data.set('nombre', nombre);
+                data.set('sigla', sigla);
+
+                fetch('/incidencias/api/tipos/' + id + '/editar', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                    body: data.toString()
+                })
+                .then(function(r) { return r.json(); })
+                .then(function(resp) {
+                    if (resp.success) {
+                        closeModal('modalEditarTipo');
+                        loadTipos();
+                        if (typeof Swal !== 'undefined') {
+                            Swal.fire({icon:'success', title:'Actualizado', text:resp.message, timer:1500, showConfirmButton:false});
+                        }
+                    } else {
+                        if (typeof Swal !== 'undefined') {
+                            Swal.fire({icon:'error', title:'Error', text:resp.error});
+                        }
+                    }
+                })
+                .catch(function() {
+                    if (typeof Swal !== 'undefined') {
+                        Swal.fire({icon:'error', title:'Error', text:'Error de conexión'});
+                    }
+                });
+            });
+        }
+        setupEditModal();
+
+        // Eliminar tipo (delegación)
+        var tablaTipos = document.getElementById('tablaTipos');
+        if (tablaTipos) {
+            tablaTipos.addEventListener('click', function(e) {
+                var btn = e.target.closest('.btn-eliminar-tipo');
+                if (!btn) return;
+                var id = parseInt(btn.dataset.id);
+                var nombre = btn.dataset.nombre;
+
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({
+                        icon: 'warning',
+                        title: '¿Eliminar tipo?',
+                        text: 'Se eliminará "' + nombre + '". No debe tener historial asociado.',
+                        showCancelButton: true,
+                        confirmButtonText: 'Eliminar',
+                        cancelButtonText: 'Cancelar',
+                        confirmButtonColor: '#d4554a',
+                    }).then(function(result) {
+                        if (result.isConfirmed) {
+                            fetch('/incidencias/api/tipos/' + id + '/eliminar', { method: 'POST' })
+                                .then(function(r) { return r.json(); })
+                                .then(function(resp) {
+                                    if (resp.success) {
+                                        loadTipos();
+                                        Swal.fire({icon:'success', title:'Eliminado', text:resp.message, timer:1500, showConfirmButton:false});
+                                    } else {
+                                        Swal.fire({icon:'error', title:'Error', text:resp.error});
+                                    }
+                                })
+                                .catch(function() {
+                                    Swal.fire({icon:'error', title:'Error', text:'Error de conexión'});
+                                });
+                        }
+                    });
+                }
+            });
+        }
+    });
+})();
+</script>
+{% endblock %}

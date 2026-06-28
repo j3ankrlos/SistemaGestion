@@ -12,48 +12,63 @@ WshShell.CurrentDirectory = strBase
 ' ──────────────────────────────────────────────
 '  CONFIGURACIÓN
 ' ──────────────────────────────────────────────
-strPort = "5000"            ' Puerto del servidor
+strPort   = "5000"
 strPython = strBase & "\venv\Scripts\python.exe"
 strSetupPy = strBase & "\setup_portable.py"
 
 ' ──────────────────────────────────────────────
-'  1) VERIFICAR ENTORNO
-'     Si no existe el venv o setup_portable.py, ejecutar setup
+'  1) DETECTAR VENV OBSOLETO (de otra computadora)
+'     El venv guarda rutas absolutas del Python original.
+'     Si python.exe existe pero falla al ejecutarse, hay que recrearlo.
+' ──────────────────────────────────────────────
+If fso.FileExists(strPython) Then
+    Dim exitCode
+    exitCode = WshShell.Run("cmd /c """ & strPython & """ --version", 0, True)
+    If exitCode <> 0 Then
+        ' El venv es de otra máquina: eliminarlo para que se recree
+        WshShell.Run "cmd /c rmdir /s /q """ & strBase & "\venv""", 0, True
+    End If
+End If
+
+' ──────────────────────────────────────────────
+'  2) VERIFICAR ENTORNO
+'     Si el venv no existe (o fue eliminado arriba), ejecutar setup
 ' ──────────────────────────────────────────────
 If Not fso.FileExists(strPython) Then
     If fso.FileExists(strSetupPy) Then
         WshShell.Run "cmd /c python """ & strSetupPy & """", 1, True
-        ' Si el Python del sistema no existe, ofrecer ayuda
+        ' Si después del setup aún no existe Python del venv
         If Not fso.FileExists(strPython) Then
-            MsgBox "No se encontró Python. Puedes descargarlo SIN admin desde:" & vbCrLf & _
-                   "https://www.python.org/downloads/" & vbCrLf & vbCrLf & _
-                   "O ejecuta: descargar_python.ps1 (PowerShell)", _
-                   vbExclamation, "Sistema Porcino - Falta Python"
+            MsgBox "El setup no pudo crear el entorno virtual." & vbCrLf & _
+                   "Asegúrate de que Python esté instalado correctamente." & vbCrLf & vbCrLf & _
+                   "Descarga Python desde: https://www.python.org/downloads/" & vbCrLf & _
+                   "(Marca 'Add Python to PATH' al instalar)", _
+                   vbExclamation, "Sistema Porcino - Error de entorno"
             WScript.Quit 1
         End If
     Else
         MsgBox "No se encuentra el entorno virtual ni el script de setup." & vbCrLf & _
-               "Asegúrate de que la carpeta está completa.", _
+               "Asegúrate de que la carpeta del proyecto esté completa.", _
                vbCritical, "Sistema Porcino - Error"
         WScript.Quit 1
     End If
 End If
 
 ' ──────────────────────────────────────────────
-'  2) LIBERAR PUERTO: mata procesos zombies
+'  3) LIBERAR PUERTO: mata procesos zombies en :5000
 ' ──────────────────────────────────────────────
 strKillCmd = "cmd /c netstat -ano | findstr :" & strPort & " > ""%TEMP%\porcino_port.txt"" & for /f ""tokens=5"" %a in ('findstr LISTENING ""%TEMP%\porcino_port.txt""') do taskkill /F /PID %a 2>nul"
 WshShell.Run strKillCmd, 0, True
 WScript.Sleep 1000
 
 ' ──────────────────────────────────────────────
-'  3) INICIAR SERVIDOR (ventana oculta, windowStyle=0)
+'  4) INICIAR SERVIDOR (ventana oculta, windowStyle=0)
 ' ──────────────────────────────────────────────
-strCmd = "cmd /c """ & strPython & """ app.py"
+strCmd = "cmd /c """ & strPython & """ """ & strBase & "\app.py"""
 WshShell.Run strCmd, 0, False
 
 ' ──────────────────────────────────────────────
-'  4) ESPERAR Y ABRIR NAVEGADOR
+'  5) ESPERAR Y ABRIR NAVEGADOR
 ' ──────────────────────────────────────────────
 WScript.Sleep 4000
 WshShell.Run "http://127.0.0.1:" & strPort & "/", 1, False

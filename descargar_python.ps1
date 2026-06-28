@@ -11,8 +11,8 @@ $PythonExe = Join-Path $PythonDir "python.exe"
 
 Write-Host ""
 Write-Host "╔══════════════════════════════════════════╗" -ForegroundColor Cyan
-Write-Host "║  Descargar Python Portable               ║" -ForegroundColor Cyan
-Write-Host "║  (NO necesita permisos de admin)         ║" -ForegroundColor Cyan
+Write-Host "║        Descargar Python Portable         ║" -ForegroundColor Cyan
+Write-Host "║     (NO necesita permisos de admin)      ║" -ForegroundColor Cyan
 Write-Host "╚══════════════════════════════════════════╝" -ForegroundColor Cyan
 Write-Host ""
 

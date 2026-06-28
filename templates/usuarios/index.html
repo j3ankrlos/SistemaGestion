@@ -162,8 +162,8 @@ window.__permisos = {{ session.get('permisos', []) | tojson | safe }};
             showConfirmButton: false,
             timer: 3000,
             timerProgressBar: true,
-            background: '#1e1e24',
-            color: '#e0e0e0',
+            background: '#1a1714',
+            color: '#e8ddd0',
         });
     }
 
@@ -752,12 +752,12 @@ window.__permisos = {{ session.get('permisos', []) | tojson | safe }};
             text: '¿Estás seguro que deseas ' + actionText + ' este usuario?',
             icon: 'question',
             showCancelButton: true,
-            confirmButtonColor: nuevoStatus === 1 ? '#2ed573' : '#ffa502',
-            cancelButtonColor: '#6c63ff',
+            confirmButtonColor: nuevoStatus === 1 ? '#6bab5a' : '#ffa502',
+            cancelButtonColor: '#d4874a',
             confirmButtonText: 'Sí, ' + actionText,
             cancelButtonText: 'Cancelar',
-            background: '#1e1e24',
-            color: '#e0e0e0',
+            background: '#1a1714',
+            color: '#e8ddd0',
             reverseButtons: true,
         }).then(function(result) {
             if (result.isConfirmed) {

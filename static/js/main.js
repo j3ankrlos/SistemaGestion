@@ -19,9 +19,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     showConfirmButton: false,
                     timer: 4000,
                     timerProgressBar: true,
-                    background: '#1e1e24',
-                    color: '#e0e0e0',
-                    iconColor: category === 'danger' ? '#ff4757' : '#6c63ff',
+                    background: '#1a1714',
+                    color: '#e8ddd0',
+                    iconColor: category === 'danger' ? '#d4554a' : '#d4874a',
                     didOpen: function(toast) {
                         toast.addEventListener('mouseenter', Swal.stopTimer);
                         toast.addEventListener('mouseleave', Swal.resumeTimer);
@@ -54,13 +54,13 @@ document.addEventListener('DOMContentLoaded', () => {
             text: msg,
             icon: 'question',
             showCancelButton: true,
-            confirmButtonColor: '#ff4757',
-            cancelButtonColor: '#6c63ff',
+            confirmButtonColor: '#d4554a',
+            cancelButtonColor: '#d4874a',
             confirmButtonText: 'Sí, eliminar',
             cancelButtonText: 'Cancelar',
-            background: '#1e1e24',
-            color: '#e0e0e0',
-            iconColor: '#ff4757',
+            background: '#1a1714',
+            color: '#e8ddd0',
+            iconColor: '#d4554a',
             reverseButtons: true
         }).then(function(result) {
             if (result.isConfirmed) {
@@ -82,13 +82,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     text: '¿Estás seguro que deseas cerrar sesión?',
                     icon: 'question',
                     showCancelButton: true,
-                    confirmButtonColor: '#6c63ff',
+                    confirmButtonColor: '#d4874a',
                     cancelButtonColor: '#6c757d',
                     confirmButtonText: 'Sí, cerrar sesión',
                     cancelButtonText: 'Cancelar',
-                    background: '#1e1e24',
-                    color: '#e0e0e0',
-                    iconColor: '#6c63ff',
+                    background: '#1a1714',
+                    color: '#e8ddd0',
+                    iconColor: '#d4874a',
                     reverseButtons: true
                 }).then(function(result) {
                     if (result.isConfirmed) {

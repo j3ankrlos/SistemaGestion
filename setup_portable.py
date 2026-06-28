@@ -18,18 +18,23 @@ el sistema en cualquier computadora SIN permisos de admin.
 
 import sys
 import os
-import subprocess
-import shutil
-import json
-import ctypes
+import subprocess   # Para ejecutar comandos en terminal
+import shutil       # Para eliminar directorios (venv corrupto)
+import json         # Para leer/escribir config.json
+import ctypes       # Para verificar si el usuario es admin
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-VENV_DIR = os.path.join(BASE_DIR, 'venv')
-REQUIREMENTS_FILE = os.path.join(BASE_DIR, 'requirements.txt')
-CONFIG_FILE = os.path.join(BASE_DIR, 'config.json')
+# ── Rutas fijas del proyecto ──
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))  # Raíz del proyecto
+VENV_DIR = os.path.join(BASE_DIR, 'venv')               # Entorno virtual
+REQUIREMENTS_FILE = os.path.join(BASE_DIR, 'requirements.txt')  # Dependencias
+CONFIG_FILE = os.path.join(BASE_DIR, 'config.json')     # Configuración de BD
 
-# Colores para terminal
+
+# ──────────────────────────────────────────────
+#  Colores para terminal (formato ANSI)
+# ──────────────────────────────────────────────
 class Color:
+    """Códigos de color ANSI para mensajes en terminal."""
     VERDE = '\033[92m'
     AMARILLO = '\033[93m'
     ROJO = '\033[91m'
@@ -37,105 +42,115 @@ class Color:
     NEGRITA = '\033[1m'
     RESET = '\033[0m'
 
+
+# ── Funciones auxiliares de mensajes ──
 def ok(msg):
+    """Mensaje de éxito (✓ verde)."""
     print(f"{Color.VERDE}✓ {msg}{Color.RESET}")
 
 def warn(msg):
+    """Mensaje de advertencia (⚠ amarillo)."""
     print(f"{Color.AMARILLO}⚠ {msg}{Color.RESET}")
 
 def error(msg):
+    """Mensaje de error (✗ rojo)."""
     print(f"{Color.ROJO}✗ {msg}{Color.RESET}")
 
 def info(msg):
+    """Mensaje informativo (• azul)."""
     print(f"{Color.AZUL}• {msg}{Color.RESET}")
 
 def titulo(msg):
+    """Título de sección (negrita + línea)."""
     print(f"\n{Color.NEGRITA}{msg}{Color.RESET}")
     print("─" * 60)
 
 
+# ──────────────────────────────────────────────
+#  Verificar si el usuario es administrador
+# ──────────────────────────────────────────────
 def es_admin():
-    """Verifica si el script se ejecuta como administrador."""
+    """Verifica si el script se ejecuta con permisos de administrador."""
     try:
         return ctypes.windll.shell32.IsUserAnAdmin() != 0
     except:
         return False
 
 
+# ──────────────────────────────────────────────
+#  Paso 1: Verificar Python
+# ──────────────────────────────────────────────
 def check_python():
-    """Verifica que Python esté disponible."""
+    """Verifica que Python >= 3.8 esté disponible en el sistema."""
     titulo("1. Verificando Python")
-    
-    # Posibles nombres del ejecutable de Python
-    python_cmds = [
-        ('python', sys.executable),
-    ]
-    
-    # Intentar encontrar python en PATH
-    python_exe = None
-    python_version = None
-    
-    # Primero usamos el Python actual (el que ejecuta este script)
+
+    # Usar el Python que está ejecutando este script
     python_exe = sys.executable
     python_version = sys.version
     ok(f"Python encontrado: {python_exe}")
     info(f"Versión: {python_version.split()[0]}")
-    
+
     major = sys.version_info.major
     minor = sys.version_info.minor
-    
+
+    # Python 3.8+ es requerido
     if major < 3 or (major == 3 and minor < 8):
         error("Se requiere Python 3.8 o superior")
         info("Descarga Python desde: https://www.python.org/downloads/")
         info("NO necesitas permisos de admin: elige 'Install for all users' = NO")
         return False
-    
+
     ok(f"Python {major}.{minor}.{sys.version_info.micro} - compatible")
-    
-    # Guardar la ruta del exe
+
+    # Guardar ruta del ejecutable para usos posteriores
     with open(os.path.join(BASE_DIR, '.python_exe'), 'w') as f:
         f.write(python_exe)
-    
+
     return True
 
 
+# ──────────────────────────────────────────────
+#  Paso 2 y 3: Entorno virtual + dependencias
+# ──────────────────────────────────────────────
 def setup_venv():
-    """Crea el entorno virtual si no existe e instala dependecias."""
+    """Crea el entorno virtual (venv) si no existe e instala las dependencias."""
     titulo("2. Entorno virtual (venv)")
-    
+
+    # Si el venv ya existe, verificar que sea usable
     if os.path.exists(VENV_DIR):
         ok("El venv ya existe")
-        # Verificar que el Python del venv sea usable
         python_venv = os.path.join(VENV_DIR, 'Scripts', 'python.exe')
         if os.path.exists(python_venv):
             info(f"Python del venv: {python_venv}")
-            return True
+            return True  # Ya está listo
         else:
             warn("El venv está corrupto, se recreará")
-            shutil.rmtree(VENV_DIR)
-    
+            shutil.rmtree(VENV_DIR)  # Borrar y recrear
+
+    # Crear entorno virtual
     info("Creando entorno virtual...")
     result = subprocess.run(
         [sys.executable, '-m', 'venv', VENV_DIR],
         capture_output=True, text=True
     )
-    
+
     if result.returncode != 0:
         error(f"No se pudo crear el venv: {result.stderr}")
         return False
-    
+
     ok("Entorno virtual creado")
-    
-    # Instalar dependencias
+
+    # ── Instalar dependencias ──
     titulo("3. Instalando dependencias")
-    
+
     python_venv = os.path.join(VENV_DIR, 'Scripts', 'python.exe')
-    
-    # Actualizar pip
+
+    # Actualizar pip a la última versión
     info("Actualizando pip...")
     subprocess.run([python_venv, '-m', 'pip', 'install', '--upgrade', 'pip'],
                    capture_output=True, text=True)
-    
+
+    # Instalar desde requirements.txt si existe, si no, instalar mínimas
     if os.path.exists(REQUIREMENTS_FILE):
         info(f"Instalando desde {REQUIREMENTS_FILE}...")
         result = subprocess.run(
@@ -161,31 +176,34 @@ def setup_venv():
         else:
             error(f"Error: {result.stderr}")
             return False
-    
+
     return True
 
 
+# ──────────────────────────────────────────────
+#  Paso 4: Verificar driver ODBC de Access
+# ──────────────────────────────────────────────
 def check_odbc_driver():
-    """Verifica que el driver ODBC de Access esté instalado."""
+    """Verifica que el driver 'Microsoft Access Driver' esté instalado en el sistema."""
     titulo("4. Driver ODBC de Microsoft Access")
-    
-    # Probar con el Python del venv
+
     python_venv = os.path.join(VENV_DIR, 'Scripts', 'python.exe')
-    
+
+    # Código Python que lista los drivers ODBC disponibles
     check_code = """
 import pyodbc
 drivers = pyodbc.drivers()
 access_drivers = [d for d in drivers if 'access' in d.lower()]
 print('\\n'.join(access_drivers) if access_drivers else 'NINGUNO')
 """
-    
+
     result = subprocess.run(
         [python_venv, '-c', check_code],
         capture_output=True, text=True
     )
-    
+
     output = result.stdout.strip()
-    
+
     if 'NINGUNO' in output:
         error("No hay driver de Microsoft Access instalado.")
         print()
@@ -196,15 +214,16 @@ print('\\n'.join(access_drivers) if access_drivers else 'NINGUNO')
         warn("IMPORTANTE: El driver ODBC SÍ requiere permisos de administrador para instalarse.")
         info("Si no tienes admin, pídele a TI que ejecute:")
         if not es_admin():
+            # Detectar arquitectura para elegir el instalador correcto
             if sys.maxsize > 2**32:
                 info("  AccessDatabaseEngine_X64.exe /quiet")
             else:
                 info("  AccessDatabaseEngine.exe /quiet")
         print()
         info("Alternativa: Si ya tienes Microsoft Office instalado, el driver ya está presente.")
-        
         return False
-    
+
+    # Mostrar los drivers encontrados
     drivers = output.split('\n')
     for d in drivers:
         if d.strip():
@@ -212,10 +231,14 @@ print('\\n'.join(access_drivers) if access_drivers else 'NINGUNO')
     return True
 
 
+# ──────────────────────────────────────────────
+#  Paso 5: Configurar ruta de base de datos
+# ──────────────────────────────────────────────
 def setup_config():
-    """Configura la ruta de la base de datos."""
+    """Busca un archivo .accdb en el proyecto y configura la conexión."""
     titulo("5. Configuración de base de datos")
-    
+
+    # Si ya existe config.json válido, lo usamos
     if os.path.exists(CONFIG_FILE):
         try:
             with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
@@ -232,28 +255,26 @@ def setup_config():
             warn("config.json inválido")
     else:
         info("No hay config.json todavía")
-    
-    # Buscar archivos .accdb en el mismo directorio o subdirectorios
+
+    # Buscar archivos .accdb en el directorio del proyecto
     info("Buscando bases de datos .accdb...")
     accdb_files = []
     for root, dirs, files in os.walk(BASE_DIR):
         for f in files:
             if f.lower().endswith('.accdb'):
                 accdb_files.append(os.path.join(root, f))
-    
+
     if accdb_files:
         info(f"Se encontraron {len(accdb_files)} base(s) de datos:")
         for f in accdb_files:
             info(f"  • {f}")
-        
-        # Usar la primera
-        db_path = accdb_files[0]
+        db_path = accdb_files[0]  # Tomar la primera encontrada
     else:
         warn("No se encontró ningún archivo .accdb")
         info("Deberás configurar la ruta manualmente desde la interfaz web")
         info("(Módulo Configuración > Base de Datos)")
-        
-        # Crear config.json con ruta vacía
+
+        # Crear config.json con ruta vacía para que no vuele a preguntar
         config = {"db_path": ""}
         try:
             with open(CONFIG_FILE, 'w', encoding='utf-8') as f:
@@ -262,10 +283,10 @@ def setup_config():
         except:
             pass
         return True
-    
-    # Probar conexión
+
+    # Probar conexión con el driver ODBC
     info("Probando conexión...")
-    
+
     python_venv = os.path.join(VENV_DIR, 'Scripts', 'python.exe')
     test_code = f"""
 import pyodbc
@@ -280,15 +301,15 @@ try:
 except Exception as e:
     print(f'ERROR: {{e}}')
 """
-    
+
     result = subprocess.run(
         [python_venv, '-c', test_code],
         capture_output=True, text=True, timeout=30
     )
-    
+
     if 'CONEXION_OK' in result.stdout:
         ok(f"Conexión exitosa a: {db_path}")
-        # Guardar en config.json
+        # Guardar ruta en config.json para que persista
         config = {"db_path": db_path}
         with open(CONFIG_FILE, 'w', encoding='utf-8') as f:
             json.dump(config, f, indent=4)
@@ -300,12 +321,16 @@ except Exception as e:
         return True  # No bloqueamos el setup por esto
 
 
+# ──────────────────────────────────────────────
+#  Paso 6: Crear lanzador PowerShell portable
+# ──────────────────────────────────────────────
 def create_portable_launcher():
-    """Crea un lanzador PowerShell portable como alternativa al VBS."""
+    """Crea un archivo .ps1 para iniciar el sistema sin permisos de admin."""
     titulo("6. Creando lanzador portable")
-    
+
     ps1_path = os.path.join(BASE_DIR, 'iniciar_sistema.ps1')
-    
+
+    # Contenido del script PowerShell
     ps1_content = r"""# ╔══════════════════════════════════════════╗
 # ║   SISTEMA PORCINO - Launcher Portable   ║
 # ║   NO requiere permisos de administrador ║
@@ -340,7 +365,7 @@ Write-Host "║  Iniciando servidor...                  ║" -ForegroundColor Cy
 Write-Host "╚══════════════════════════════════════════╝" -ForegroundColor Cyan
 Write-Host ""
 
-# Abrir navegador después de 4 segundos
+# Abrir navegador después de 4 segundos (tiempo para que el servidor arranque)
 $timer = [System.Timers.Timer]::new(4000)
 Register-ObjectEvent -InputObject $timer -EventName Elapsed -Action {
     Start-Process "http://localhost:5000/"
@@ -351,35 +376,38 @@ $timer.Start()
 # Ejecutar servidor
 & $PythonExe app.py
 """
-    
+
     with open(ps1_path, 'w', encoding='utf-8') as f:
         f.write(ps1_content)
-    
+
     ok(f"Creado: iniciar_sistema.ps1")
     info("También puedes usar:  python app.py  desde cualquier terminal")
     return True
 
 
+# ──────────────────────────────────────────────
+#  Resumen final del setup
+# ──────────────────────────────────────────────
 def print_summary(success_venv, success_odbc):
-    """Muestra resumen final."""
+    """Muestra un resumen con el resultado de cada paso del setup."""
     print()
     print("═" * 60)
     print(f"{Color.NEGRITA}       RESUMEN DEL SETUP{Color.RESET}")
     print("═" * 60)
-    
+
     checks = [
         ("Python", True),
         ("Entorno virtual (venv)", success_venv),
         ("Dependencias instaladas", success_venv),
         ("Driver ODBC Access", success_odbc),
     ]
-    
+
     for name, ok_flag in checks:
         status = f"{Color.VERDE}✓ OK{Color.RESET}" if ok_flag else f"{Color.ROJO}✗ FALLA{Color.RESET}"
         print(f"  {status}  {name}")
-    
+
     print()
-    
+
     if success_venv:
         ok("LISTO: Puedes iniciar el sistema con:")
         print()
@@ -388,44 +416,51 @@ def print_summary(success_venv, success_odbc):
         print()
     else:
         error("El setup tiene problemas. Revisa los mensajes anteriores.")
-    
+
     if not success_odbc:
         warn("El driver ODBC de Access no está instalado.")
         info("El sistema NO podrá conectar a la base de datos Access.")
         info("Descarga: https://aka.ms/accessdatabasengine")
 
 
+# ──────────────────────────────────────────────
+#  Función principal
+# ──────────────────────────────────────────────
 def main():
+    """Ejecuta todos los pasos del setup en orden."""
     print()
     print(f"{Color.NEGRITA}╔══════════════════════════════════════════════════════════╗{Color.RESET}")
     print(f"{Color.NEGRITA}║        SISTEMA PORCINO - SETUP PORTABLE                  ║{Color.RESET}")
     print(f"{Color.NEGRITA}║  Prepara el entorno SIN permisos de administrador        ║{Color.RESET}")
     print(f"{Color.NEGRITA}╚══════════════════════════════════════════════════════════╝{Color.RESET}")
     print()
-    
+
     info(f"Directorio: {BASE_DIR}")
     info(f"Admin: {'SÍ' if es_admin() else 'NO (bien, no lo necesitamos)'}")
     print()
-    
-    # Paso 1: Python
+
+    # Paso 1: Verificar Python
     if not check_python():
         return
-    
-    # Paso 2 y 3: venv + dependencias
+
+    # Paso 2 y 3: Crear venv e instalar dependencias
     success_venv = setup_venv()
-    
-    # Paso 4: Driver ODBC
+
+    # Paso 4: Verificar driver ODBC
     success_odbc = check_odbc_driver()
-    
-    # Paso 5: Config
+
+    # Paso 5: Configurar base de datos
     setup_config()
-    
-    # Paso 6: Launcher
+
+    # Paso 6: Crear lanzador .ps1
     create_portable_launcher()
-    
-    # Resumen
+
+    # Resumen final
     print_summary(success_venv, success_odbc)
 
 
+# ═══════════════════════════════════════════════
+#  Punto de entrada
+# ═══════════════════════════════════════════════
 if __name__ == '__main__':
     main()
