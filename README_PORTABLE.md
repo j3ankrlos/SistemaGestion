@@ -4,49 +4,65 @@
 
 ---
 
-## Qué necesitas en la PC destino
+## Requisitos en la PC destino
 
 | Requisito | ¿Cómo obtenerlo? | ¿Necesita admin? |
 |---|---|---|
-| Python 3.8 o superior | https://www.python.org/downloads/ — marca "Add Python to PATH" | ❌ No (instalar solo para el usuario) |
-| Microsoft Office | Ya instalado | — |
-| La carpeta del proyecto | Copiar desde USB/red | ❌ No |
-
-> **Si Office está instalado, el driver de Access ya funciona.** No hace falta instalar nada extra.
+| Python 3.8 o superior | https://www.python.org/downloads/ — marca "Add Python to PATH" | ❌ No |
+| Microsoft Access Driver | Viene con Microsoft Office | ❌ No |
+| La carpeta del proyecto | Git clone o copiar desde USB | ❌ No |
 
 ---
 
-## Pasos (en la PC que SÍ tiene internet — la tuya)
+## Modo RÁPIDO (recomendado)
 
-### 1. Copiar la base de datos al proyecto
+### 1. Clonar o copiar el proyecto
 
-Tu base de datos está **fuera** del proyecto. Debes copiarla adentro:
-
-```
-Origen:   C:\Users\jean.gonzalez\Desktop\Recursos\DB\DBSistema.accdb
-Destino:  SistemaPorcino\database\DBSistema.accdb
+```bash
+git clone https://github.com/j3ankrlos/SistemaGestion.git
+cd SistemaGestion
 ```
 
-**Copia el archivo `.accdb` dentro de la carpeta `database\` del proyecto.**
+### 2. Ejecutar el sistema
 
-### 2. Descargar paquetes para uso offline
-
-Haz doble clic en:
+Haz **doble clic** en:
 
 ```
-descargar_paquetes.bat
+iniciar_sistema.vbs
 ```
 
-Esto crea una carpeta `wheels\` con todos los paquetes Python necesarios.  
-Tarda 1-3 minutos. Solo necesitas hacerlo una vez.
+> **¿Qué hace automáticamente?**
+> 1. ✅ Verifica que Python esté instalado
+> 2. ✅ Crea el entorno virtual (venv) si no existe
+> 3. ✅ Instala dependencias desde `wheels\` (sin internet) o desde internet
+> 4. ✅ Verifica el driver ODBC de Microsoft Access
+> 5. ✅ Inicia el servidor y abre el navegador
 
-### 3. Copiar la carpeta completa a la otra PC
+### 3. Configurar la base de datos (solo la primera vez)
 
-Copia **toda** la carpeta `SistemaPorcino\` a la otra computadora (USB, red, etc.).  
-Debe incluir:
-- `wheels\` ← paquetes pip offline
-- `database\DBSistema.accdb` ← tu base de datos
-- `requirements.txt`, `app.py`, `config.json`, etc.
+Al abrir el sistema por primera vez, verás una pantalla de **configuración**.
+Presiona **"Buscar"** y selecciona tu archivo `.accdb` desde cualquier carpeta.
+
+---
+
+## Modo manual (alternativa)
+
+```bash
+cd SistemaGestion
+python setup_portable.py
+python app.py
+```
+
+Luego abre http://localhost:5000
+
+---
+
+## Si no tienes Python instalado
+
+Descárgalo gratis desde: https://www.python.org/downloads/
+
+**Importante al instalar:** marca la opción **"Add Python to PATH"**.
+NO necesitas permisos de administrador (elige "Install for all users" = NO).
 
 > ⚠️ **NO copies la carpeta `venv\`** — si la copias, el sistema la detectará como inválida
 > y la recreará automáticamente. Mejor no copiarla para ahorrar espacio.

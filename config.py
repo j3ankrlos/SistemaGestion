@@ -28,6 +28,20 @@ def get_db_path():
         except:
             pass  # Si el JSON está corrupto, usar fallback
 
+    # Fallback: intentar con config.example.json (plantilla que viene en git)
+    example_file = os.path.join(project_root, 'config.example.json')
+    if os.path.exists(example_file):
+        try:
+            with open(example_file, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                db_path = data.get('db_path', '')
+                if db_path:
+                    if not os.path.isabs(db_path):
+                        db_path = os.path.normpath(os.path.join(project_root, db_path))
+                    return db_path
+        except:
+            pass
+
     # Fallback: buscar cualquier .accdb dentro de la carpeta database/
     db_folder = os.path.join(project_root, 'database')
     if os.path.exists(db_folder):

@@ -150,19 +150,47 @@ def setup_venv():
     subprocess.run([python_venv, '-m', 'pip', 'install', '--upgrade', 'pip'],
                    capture_output=True, text=True)
 
-    # Instalar desde requirements.txt si existe, si no, instalar mínimas
+    # Ruta de la carpeta wheels (paquetes precargados para offline)
+    wheels_dir = os.path.join(BASE_DIR, 'wheels')
+
+    # Instalar dependencias: primero intentar offline desde wheels/
     if os.path.exists(REQUIREMENTS_FILE):
-        info(f"Instalando desde {REQUIREMENTS_FILE}...")
-        result = subprocess.run(
-            [python_venv, '-m', 'pip', 'install', '-r', REQUIREMENTS_FILE],
-            capture_output=True, text=True
-        )
-        if result.returncode == 0:
-            ok("Dependencias instaladas correctamente")
+        if os.path.exists(wheels_dir):
+            info("Intentando instalar desde paquetes locales (wheels/)...")
+            result = subprocess.run(
+                [python_venv, '-m', 'pip', 'install', '--no-index', '--find-links', wheels_dir, '-r', REQUIREMENTS_FILE],
+                capture_output=True, text=True
+            )
+            if result.returncode == 0:
+                ok("Dependencias instaladas desde paquetes locales")
+            else:
+                warn("Paquetes locales incompatibles (versión de Python diferente)")
+                info("Intentando instalación desde internet...")
+                result = subprocess.run(
+                    [python_venv, '-m', 'pip', 'install', '-r', REQUIREMENTS_FILE],
+                    capture_output=True, text=True
+                )
+                if result.returncode == 0:
+                    ok("Dependencias instaladas desde internet")
+                else:
+                    error(f"Error instalando dependencias: {result.stderr}")
+                    info("Verifica tu conexión a internet e inténtalo de nuevo:")
+                    info(f'  {python_venv} -m pip install -r "{REQUIREMENTS_FILE}"')
+                    return False
         else:
-            error(f"Error instalando dependencias: {result.stderr}")
-            info("Puedes intentarlo manualmente con:")
-            info(f'  {python_venv} -m pip install -r "{REQUIREMENTS_FILE}"')
+            # No hay carpeta wheels, instalar directamente desde internet
+            info("No se encontró carpeta wheels/, instalando desde internet...")
+            result = subprocess.run(
+                [python_venv, '-m', 'pip', 'install', '-r', REQUIREMENTS_FILE],
+                capture_output=True, text=True
+            )
+            if result.returncode == 0:
+                ok("Dependencias instaladas desde internet")
+            else:
+                error(f"Error instalando dependencias: {result.stderr}")
+                info(f'  {python_venv} -m pip install -r "{REQUIREMENTS_FILE}"')
+                return False
+    else:
             return False
     else:
         warn(f"No se encontró {REQUIREMENTS_FILE}")
@@ -430,7 +458,7 @@ def main():
     """Ejecuta todos los pasos del setup en orden."""
     print()
     print(f"{Color.NEGRITA}╔══════════════════════════════════════════════════════════╗{Color.RESET}")
-    print(f"{Color.NEGRITA}║        SISTEMA PORCINO - SETUP PORTABLE                  ║{Color.RESET}")
+    print(f"{Color.NEGRITA}║        SISTEMA DE GESTIÓN - SETUP PORTABLE              ║{Color.RESET}")
     print(f"{Color.NEGRITA}║  Prepara el entorno SIN permisos de administrador        ║{Color.RESET}")
     print(f"{Color.NEGRITA}╚══════════════════════════════════════════════════════════╝{Color.RESET}")
     print()
