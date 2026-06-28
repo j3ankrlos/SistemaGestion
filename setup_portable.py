@@ -118,25 +118,58 @@ def setup_venv():
 
     # Si el venv ya existe, verificar que sea usable
     if os.path.exists(VENV_DIR):
-        ok("El venv ya existe")
-        python_venv = os.path.join(VENV_DIR, 'Scripts', 'python.exe')
-        if os.path.exists(python_venv):
-            info(f"Python del venv: {python_venv}")
-            return True  # Ya está listo
+        python_venv_check = os.path.join(VENV_DIR, 'Scripts', 'python.exe')
+        if os.path.exists(python_venv_check):
+            # Verificar que realmente funciona (no sea de otra máquina)
+            try:
+                subprocess.run([python_venv_check, '--version'],
+                               capture_output=True, timeout=5)
+                ok("El venv ya existe y es funcional")
+                return True
+            except Exception:
+                warn("El venv es de otra computadora, se recreará")
         else:
-            warn("El venv está corrupto, se recreará")
-            shutil.rmtree(VENV_DIR)  # Borrar y recrear
+            warn("El venv está corrupto, se eliminará")
 
-    # Crear entorno virtual
+        # Eliminar venv existente (intentar varios métodos)
+        try:
+            shutil.rmtree(VENV_DIR)
+        except Exception:
+            pass
+        # Forzar eliminación con cmd (más agresivo en Windows)
+        os.system(f'rmdir /s /q "{VENV_DIR}" 2>nul')
+        if os.path.exists(VENV_DIR):
+            error("No se pudo eliminar la carpeta venv/ existente.")
+            info("Cierra cualquier programa que pueda estar usándola e intenta de nuevo.")
+            info("O ejecuta manualmente: rmdir /s /q venv")
+            return False
+
+    # Crear entorno virtual (con reintento)
     info("Creando entorno virtual...")
-    result = subprocess.run(
-        [sys.executable, '-m', 'venv', VENV_DIR],
-        capture_output=True, text=True
-    )
-
-    if result.returncode != 0:
-        error(f"No se pudo crear el venv: {result.stderr}")
-        return False
+    for intento in range(3):
+        result = subprocess.run(
+            [sys.executable, '-m', 'venv', VENV_DIR],
+            capture_output=True, text=True
+        )
+        if result.returncode == 0:
+            break
+        if intento < 2:
+            warn(f"Intento {intento + 1} falló, reintentando...")
+            # Limpiar cualquier rastro antes de reintentar
+            os.system(f'rmdir /s /q "{VENV_DIR}" 2>nul')
+        else:
+            error(f"No se pudo crear el entorno virtual tras 3 intentos.")
+            error(f"Detalle: {result.stderr}")
+            print()
+            info("Posibles causas y soluciones:")
+            info("  1. Antivirus bloqueando la creación de archivos → deshabilitar temporalmente")
+            info("  2. Carpeta venv/ residual con permisos incorrectos → ejecuta: rmdir /s /q venv")
+            info("  3. Python no tiene permisos suficientes → ejecuta como Administrador:")
+            info(f"     python -m venv {VENV_DIR}")
+            print()
+            info("Una vez resuelto, ejecuta de nuevo:")
+            info("  python setup_portable.py")
+            return False
 
     ok("Entorno virtual creado")
 
@@ -190,8 +223,6 @@ def setup_venv():
                 error(f"Error instalando dependencias: {result.stderr}")
                 info(f'  {python_venv} -m pip install -r "{REQUIREMENTS_FILE}"')
                 return False
-    else:
-            return False
     else:
         warn(f"No se encontró {REQUIREMENTS_FILE}")
         info("Instalando dependencias mínimas...")

@@ -86,10 +86,18 @@ If Not fso.FileExists(strPython) Then
         ' Si después del setup aún no existe Python del venv
         If Not VenvIsUsable() Then
             MsgBox "El setup no pudo crear el entorno virtual." & vbCrLf & _
-                   "Asegúrate de que Python esté instalado correctamente." & vbCrLf & vbCrLf & _
-                   "Si el problema persiste, abre una terminal en la carpeta" & vbCrLf & _
-                   "del proyecto y ejecuta:" & vbCrLf & vbCrLf & _
-                   "  python setup_portable.py", _
+                   "Posibles causas:" & vbCrLf & _
+                   "  - Antivirus bloqueando la creación de archivos" & vbCrLf & _
+                   "  - Carpeta venv/ con permisos incorrectos" & vbCrLf & _
+                   "  - Python no tiene permisos suficientes" & vbCrLf & vbCrLf & _
+                   "Soluciones:" & vbCrLf & _
+                   "  1. Cierra el antivirus temporalmente e intenta de nuevo" & vbCrLf & _
+                   "  2. Abre una terminal COMO ADMINISTRADOR y ejecuta:" & vbCrLf & _
+                   "     rmdir /s /q """ & strBase & "\venv""" & vbCrLf & _
+                   "     python setup_portable.py" & vbCrLf & vbCrLf & _
+                   "  3. Si el problema persiste, abre una terminal normal y" & vbCrLf & _
+                   "     ejecuta: python setup_portable.py" & vbCrLf & _
+                   "     (así verás el mensaje de error detallado)", _
                    vbExclamation, "Sistema de Gestión - Error de entorno"
             WScript.Quit 1
         End If
