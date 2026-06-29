@@ -10,11 +10,26 @@ from routes.personal import personal_bp
 from routes.incidencias import incidencias_bp
 from routes.asistencias import asistencias_bp
 from utils.decorators import login_required, login_required_api
+from flask_login import LoginManager
+from models.user import get_user_by_id, AnonymousUser
 
 # ── Crear aplicación Flask ──
 app = Flask(__name__)
 app.config.from_object(Config)                    # Cargar config desde config.py
 app.config['TEMPLATES_AUTO_RELOAD'] = True        # Recargar templates sin reiniciar
+
+# ── Inicializar Flask-Login ──
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = 'auth.login'
+login_manager.anonymous_user = AnonymousUser
+login_manager.login_message = None        # No mostrar mensaje en la pantalla de login
+
+
+@login_manager.user_loader
+def load_user(user_id):
+    """Flask-Login: reconstruye el usuario desde la BD en cada request."""
+    return get_user_by_id(int(user_id))
 
 import threading
 import time
@@ -118,8 +133,9 @@ def heartbeat():
 @app.route('/end-session', methods=['POST'])
 def end_session():
     """Llamado vía navigator.sendBeacon() cuando se cierra el navegador.
-    Limpia la sesión del usuario."""
-    session.clear()
+    Usa logout_user() de Flask-Login para limpiar la sesión correctamente."""
+    from flask_login import logout_user
+    logout_user()
     return '', 200
 
 
@@ -231,15 +247,20 @@ def setup_db():
 #  Endpoint: Avatar / foto del usuario
 # ──────────────────────────────────────────────
 @app.route('/avatar')
-@login_required
 def user_avatar():
-    """Sirve la foto del usuario desde el campo Fotografia de la tabla Personal.
-    Detecta automáticamente el tipo de imagen (JPEG, PNG, BMP)."""
-    from database.connection import get_connection
-    id_personal = session.get('id_personal', 0)
-    if not id_personal:
-        return '', 404  # Sin personal vinculado
+    """Sirve la foto del usuario. No requiere login (la usa el navbar antes de loguearse).
+    Si no hay sesión activa, retorna 404."""
+    from flask_login import current_user
+    if not current_user.is_authenticated:
+        return '', 404
+    return _serve_avatar(current_user.id_personal)
 
+
+def _serve_avatar(id_personal):
+    """Lógica interna para servir la foto desde la BD."""
+    if not id_personal:
+        return '', 404
+    from database.connection import get_connection
     try:
         conn = get_connection()
         cursor = conn.cursor()

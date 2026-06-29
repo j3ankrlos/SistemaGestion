@@ -1,4 +1,5 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, session
+from flask_login import current_user
 from database.connection import execute_query, get_connection
 from utils.decorators import login_required, permission_required
 from datetime import datetime
@@ -20,8 +21,8 @@ def _get_form_data():
     turnos = execute_query("SELECT * FROM Turnos ORDER BY 2", fetchall=True) or []
     centros_costo = execute_query("SELECT * FROM CentrosCostos ORDER BY 2", fetchall=True) or []
     # Áreas: filtrar por sitio si no es SuperAdmin
-    is_admin = session.get('rol_id') == 1
-    user_sitio = session.get('fk_sitio', 0)
+    is_admin = current_user.rol_id == 1
+    user_sitio = current_user.fk_sitio
     if is_admin or not user_sitio:
         areas = execute_query("SELECT IdArea, Area FROM Areas ORDER BY Area", fetchall=True) or []
     else:
@@ -59,8 +60,8 @@ def get_personal_data():
     search = request.args.get('search', '', type=str)
     per_page = PER_PAGE
 
-    is_admin = session.get('rol_id') == 1
-    user_sitio = session.get('fk_sitio', 0)
+    is_admin = current_user.rol_id == 1
+    user_sitio = current_user.fk_sitio
 
     base_query = " FROM Personal p"
     where_conditions = []
@@ -223,7 +224,7 @@ def crear():
                  fecha_obj, num_ficha,
                  id_parroquia_dir, id_tipo_nomina, id_cargo, id_turno,
                  id_estatus, id_contrato, id_centro_costo,
-                 id_area, datetime.now(), session.get('usuario_id'))
+                 id_area, datetime.now(), current_user.id)
             )
             conn.commit()
 

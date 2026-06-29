@@ -44,7 +44,7 @@
             </table>
         </div>
         
-        {% if 'permisos.editar' in (session.get('permisos') or []) %}
+        {% if current_user.tiene_permiso('permisos.editar') %}
         <div style="margin-top:20px; text-align:right;">
             <button type="submit" class="btn-primary" style="width:auto; padding:10px 30px;"><i class="fa-solid fa-save"></i> Guardar Cambios en la Matriz</button>
         </div>

@@ -1,4 +1,5 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session, current_app
+from flask_login import current_user
 import os
 import json
 import threading
@@ -17,12 +18,12 @@ def config_required(f):
     """
     Decorador que permite acceso si el usuario tiene el permiso
     'configuracion.ver' O es SuperAdmin (rol_id=1).
+    Usa current_user (Flask-Login) en lugar de session.
     """
     from functools import wraps
     @wraps(f)
     def decorated(*args, **kwargs):
-        permisos = session.get('permisos') or []
-        if 'configuracion.ver' not in permisos and session.get('rol_id') != 1:
+        if not current_user.tiene_permiso('configuracion.ver') and current_user.rol_id != 1:
             flash('No tienes permisos para acceder a Configuración.', 'danger')
             return redirect(url_for('index'))
         return f(*args, **kwargs)
@@ -111,7 +112,7 @@ def database():
     # ── Procesar cambio de ruta (POST) ──
     if request.method == 'POST':
         # Verificar permiso específico para editar configuración
-        if 'configuracion.editar' not in (session.get('permisos') or []):
+        if not current_user.tiene_permiso('configuracion.editar'):
             flash('No tienes permiso para modificar la configuración.', 'danger')
             return redirect(url_for('config.database'))
 
@@ -208,13 +209,13 @@ def admin_areas():
 @login_required
 def api_areas_listar():
     """Devuelve JSON con todas las áreas y su sitio asociado."""
-    if 'areas.ver' not in (session.get('permisos') or []) and session.get('rol_id') != 1:
+    if not current_user.tiene_permiso('areas.ver') and current_user.rol_id != 1:
         return {'success': False, 'error': 'Permiso denegado'}, 403
     try:
         conn = get_connection()
         c = conn.cursor()
-        is_admin = session.get('rol_id') == 1
-        user_sitio = session.get('fk_sitio', 0)
+        is_admin = current_user.rol_id == 1
+        user_sitio = current_user.fk_sitio
         if is_admin or not user_sitio:
             c.execute("""
                 SELECT a.IdArea, a.Area, a.Fk_IdSitio, s.Sitio
@@ -253,8 +254,8 @@ def api_sitios_listar():
     try:
         conn = get_connection()
         c = conn.cursor()
-        user_sitio = session.get('fk_sitio')
-        if session.get('rol_id') == 1 or not user_sitio:
+        user_sitio = current_user.fk_sitio
+        if current_user.rol_id == 1 or not user_sitio:
             c.execute("SELECT IdSitio, Sitio FROM Sitios ORDER BY Sitio")
         else:
             c.execute("SELECT IdSitio, Sitio FROM Sitios WHERE IdSitio = ? ORDER BY Sitio", (user_sitio,))
@@ -270,7 +271,7 @@ def api_sitios_listar():
 @login_required
 def api_areas_crear():
     """Crea un área nueva."""
-    if 'areas.crear' not in (session.get('permisos') or []) and session.get('rol_id') != 1:
+    if not current_user.tiene_permiso('areas.crear') and current_user.rol_id != 1:
         return {'success': False, 'error': 'Permiso denegado'}, 403
     nombre = request.form.get('nombre', '').strip().upper()
     fk_sitio = request.form.get('fk_sitio', '').strip()
@@ -299,7 +300,7 @@ def api_areas_crear():
 @login_required
 def api_areas_editar():
     """Actualiza un área existente."""
-    if 'areas.editar' not in (session.get('permisos') or []) and session.get('rol_id') != 1:
+    if not current_user.tiene_permiso('areas.editar') and current_user.rol_id != 1:
         return {'success': False, 'error': 'Permiso denegado'}, 403
     area_id = request.form.get('id', '').strip()
     nombre = request.form.get('nombre', '').strip().upper()
@@ -331,7 +332,7 @@ def api_areas_editar():
 @login_required
 def api_areas_eliminar():
     """Elimina un área si no tiene personal asociado."""
-    if 'areas.eliminar' not in (session.get('permisos') or []) and session.get('rol_id') != 1:
+    if not current_user.tiene_permiso('areas.eliminar') and current_user.rol_id != 1:
         return {'success': False, 'error': 'Permiso denegado'}, 403
     area_id = request.form.get('id', '').strip()
     if not area_id or not area_id.isdigit():

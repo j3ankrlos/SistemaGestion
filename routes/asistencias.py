@@ -1,4 +1,5 @@
 from flask import Blueprint, render_template, request, jsonify, session
+from flask_login import current_user
 from database.connection import execute_query, get_connection
 from utils.decorators import login_required, permission_required
 from datetime import datetime
@@ -15,8 +16,8 @@ asistencias_bp = Blueprint('asistencias', __name__)
 def index():
     """Renderiza la página de asistencias diarias."""
     # Áreas filtradas por sitio si no es SuperAdmin
-    is_admin = session.get('rol_id') == 1
-    user_sitio = session.get('fk_sitio', 0)
+    is_admin = current_user.rol_id == 1
+    user_sitio = current_user.fk_sitio
     if is_admin or not user_sitio:
         areas = execute_query("SELECT IdArea, Area FROM Areas ORDER BY Area", fetchall=True) or []
     else:
@@ -36,8 +37,8 @@ def index():
 @permission_required('asistencias.ver')
 def historial():
     """Renderiza la página de historial de asistencias."""
-    is_admin = session.get('rol_id') == 1
-    user_sitio = session.get('fk_sitio', 0)
+    is_admin = current_user.rol_id == 1
+    user_sitio = current_user.fk_sitio
     if is_admin or not user_sitio:
         areas = execute_query("SELECT IdArea, Area FROM Areas ORDER BY Area", fetchall=True) or []
     else:
@@ -70,8 +71,8 @@ def api_personal_por_area():
         fecha_str = datetime.now().strftime('%Y-%m-%d')
 
     # Personal activo del área seleccionada
-    is_admin = session.get('rol_id') == 1
-    user_sitio = session.get('fk_sitio', 0)
+    is_admin = current_user.rol_id == 1
+    user_sitio = current_user.fk_sitio
     sitio_filter = ""
     sitio_params = ()
     if not is_admin and user_sitio:
@@ -207,7 +208,7 @@ def guardar_asistencias():
 
         fecha = data.get('fecha', '').strip()
         registros = data.get('registros', [])
-        usuario_id = session.get('usuario_id')
+        usuario_id = current_user.id
 
         if not fecha:
             return jsonify({'success': False, 'error': 'Fecha requerida.'})
@@ -313,8 +314,8 @@ def api_historial():
         params.append(fecha_hasta)
 
     # Filtro por sitio si no es SuperAdmin
-    is_admin = session.get('rol_id') == 1
-    user_sitio = session.get('fk_sitio', 0)
+    is_admin = current_user.rol_id == 1
+    user_sitio = current_user.fk_sitio
     if not is_admin and user_sitio:
         where.append("p.Fk_IdCentroCosto IN (SELECT IdCentroCosto FROM CentrosCostos WHERE Fk_IdSitio = ?)")
         params.append(user_sitio)
@@ -408,7 +409,7 @@ def api_actualizar_asistencia():
         estado = data.get('estado', 'Asistente')
         id_incidencia = data.get('id_incidencia')
         observacion = data.get('observacion', '')
-        usuario_id = session.get('usuario_id')
+        usuario_id = current_user.id
 
         if not id_asistencia:
             return jsonify({'success': False, 'error': 'ID de asistencia requerido.'})

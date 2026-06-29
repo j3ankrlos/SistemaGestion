@@ -4,7 +4,7 @@
 <div class="card">
     <div class="card-header">
         <h2><i class="fa-solid fa-users"></i> Gesti&oacute;n de Usuarios</h2>
-        {% if 'usuarios.crear' in (session.get('permisos') or []) %}
+        {% if current_user.tiene_permiso('usuarios.crear') %}
         <button class="btn-primary" id="btnNuevoUsuario" style="width:auto; padding:10px 20px; display:inline-flex; align-items:center; gap:8px;">
             <i class="fa-solid fa-plus"></i> Nuevo Usuario
         </button>
@@ -139,7 +139,8 @@ window.__roles = [
     { id: {{ r[0] }}, nombre: '{{ r[1]|e }}' },
     {% endfor %}
 ];
-window.__permisos = {{ (session.get('permisos') or []) | tojson | safe }};
+window.__puedeEditar = {{ 'true' if current_user.tiene_permiso('usuarios.editar') else 'false' }};
+window.__puedeDesactivar = {{ 'true' if current_user.tiene_permiso('usuarios.desactivar') else 'false' }};
 
 (function() {
     'use strict';
@@ -202,11 +203,11 @@ window.__permisos = {{ (session.get('permisos') or []) | tojson | safe }};
             // Botones de acción según permisos
             var acciones = '<div class="action-btns">';
 
-            if (window.__permisos.indexOf('usuarios.editar') !== -1) {
+            if (window.__puedeEditar) {
                 acciones += '<button class="btn-action edit" onclick="window.__editUsuario(' + u.id + ')" title="Editar usuario"><i class="fa-solid fa-pen"></i> Editar</button>';
             }
 
-            if (window.__permisos.indexOf('usuarios.desactivar') !== -1) {
+            if (window.__puedeDesactivar) {
                 if (esActivo) {
                     acciones += '<button class="btn-action deactivate" onclick="window.__toggleStatus(' + u.id + ', 0)" title="Desactivar usuario"><i class="fa-solid fa-ban"></i> Desactivar</button>';
                 } else {

@@ -1,22 +1,14 @@
-from functools import wraps          # Preserva metadatos de la función decorada
+from functools import wraps               # Preserva metadatos de la función decorada
 from flask import session, redirect, url_for, flash, jsonify
+from flask_login import login_required as flask_login_required, current_user
 
 
 # ──────────────────────────────────────────────
 #  Decorador: Requiere inicio de sesión
+#  (Re-export de Flask-Login para mantener compatibilidad
+#   con todos los 'from utils.decorators import login_required')
 # ──────────────────────────────────────────────
-def login_required(f):
-    """
-    Decorador que protege rutas HTML: redirige al login si el usuario
-    no tiene una sesión activa ('usuario_id' en session).
-    """
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        # Si no hay usuario en sesión, lo envía al login
-        if 'usuario_id' not in session:
-            return redirect(url_for('auth.login'))
-        return f(*args, **kwargs)
-    return decorated_function
+login_required = flask_login_required
 
 
 # ──────────────────────────────────────────────
@@ -30,7 +22,7 @@ def login_required_api(f):
     """
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        if 'usuario_id' not in session:
+        if not current_user.is_authenticated:
             return jsonify({'success': False, 'error': 'Sesión no válida. Inicia sesión nuevamente.'}), 401
         return f(*args, **kwargs)
     return decorated_function
@@ -43,6 +35,7 @@ def permission_required(slug):
     """
     Decorador que protege rutas según el permiso (slug).
     Ejemplo de uso: @permission_required('usuarios.ver')
+    Usa current_user (Flask-Login) en lugar de session directamente.
     
     Parámetros:
         slug (str): Identificador del permiso requerido (ej: 'personal.crear')
@@ -51,15 +44,11 @@ def permission_required(slug):
         @wraps(f)
         def decorated_function(*args, **kwargs):
             # Primero verifica que el usuario esté autenticado
-            if 'usuario_id' not in session:
+            if not current_user.is_authenticated:
                 return redirect(url_for('auth.login'))
 
-            # Obtiene la lista de permisos del usuario desde la sesión
-            # Usamos 'or []' porque session['permisos'] podría ser None
-            user_permissions = session.get('permisos') or []
-
-            # Si no tiene el permiso requerido, muestra error y redirige
-            if slug not in user_permissions:
+            # Verifica el permiso usando el método del modelo User
+            if not current_user.tiene_permiso(slug):
                 flash('No tienes permisos para acceder a este módulo.', 'danger')
                 return redirect(url_for('index'))
 

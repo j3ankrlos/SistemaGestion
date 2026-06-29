@@ -1,4 +1,5 @@
 from flask import Blueprint, render_template, request, jsonify, session
+from flask_login import current_user
 from database.connection import execute_query
 from utils.decorators import login_required, permission_required
 
@@ -123,7 +124,7 @@ def crear_historial():
         if not id_incidencia or not id_personal or not fecha_inicio:
             return jsonify({'success': False, 'error': 'Faltan campos requeridos (tipo, personal, fecha inicio).'})
 
-        usuario_id = session.get('usuario_id')
+        usuario_id = current_user.id
         if not usuario_id:
             return jsonify({'success': False, 'error': 'Sesión no válida.'})
 
