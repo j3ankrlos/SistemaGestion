@@ -3,3 +3,4 @@ pyodbc
 bcrypt
 waitress
 python-dotenv
+flask-login
