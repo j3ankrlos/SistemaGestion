@@ -109,6 +109,8 @@ def create_tables():
         except Exception as e:
             print("Columna TotalHorasExtras ya existe o no se pudo agregar:", e)
 
+        conn.commit()
+
     finally:
         cursor.close()
         conn.close()
