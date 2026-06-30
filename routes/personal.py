@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, session
 from flask_login import current_user
-from database.connection import execute_query, get_connection
+from database.connection import execute_query, get_connection, close_connection
 from utils.decorators import login_required, permission_required
 from datetime import datetime
 
@@ -212,56 +212,63 @@ def crear():
         try:
             conn = get_connection()
             cursor = conn.cursor()
-            cursor.execute(
-                """INSERT INTO Personal
-                   (Nombres, Apellidos, Cedula,
-                    FechaIngreso, NumeroFicha,
-                    FK_IdParroquiaR, Fk_IdTipoNomina, FK_IdCargo, FK_IdTurno,
-                    FK_IdEstatusActual, FK_IdTipoContrato, Fk_IdCentroCosto,
-                    Fk_Area, FechaRegistro, Fk_IdUsuario)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-                (nombres, apellidos, cedula,
-                 fecha_obj, num_ficha,
-                 id_parroquia_dir, id_tipo_nomina, id_cargo, id_turno,
-                 id_estatus, id_contrato, id_centro_costo,
-                 id_area, datetime.now(), current_user.id)
-            )
-            conn.commit()
-
-            # Obtener el ID recién insertado
-            cursor.execute("SELECT @@IDENTITY")
-            new_id = cursor.fetchone()[0]
-
-            # Insertar dirección en tabla Direcciones
-            cursor.execute(
-                """INSERT INTO Direcciones
-                   (Fk_IdPersonal, Fk_IdEstado, Fk_IdMunicipio, Fk_IdParroquia,
-                    Ciudad, Direccion, TelefonoFijo, TelefonoMovil)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
-                (new_id, id_estado, id_municipio, id_parroquia_dir,
-                 ciudad, direccion, telefono_fijo, telefono_movil)
-            )
-            conn.commit()
-
-            # Si es Médico Veterinario (ID=4), insertar detalles médicos
-            if id_cargo == 4:
-                colegio = request.form.get('colegio_medicos', '').strip()
-                estado_med = request.form.get('estado_medico', '').strip()
-                codigo_mpps = request.form.get('codigo_mpps', '').strip()
-                area = request.form.get('area_produccion', '').strip()
-                unidad = request.form.get('unidad_medico', '').strip()
-                siglas = request.form.get('siglas_medico', '').strip()
-
+            try:
                 cursor.execute(
-                    """INSERT INTO DetallesMedicos
-                       (FK_IdPersonal, ColegioMedicos, Estado, CodigoMPPS,
-                        AreaProduccion, Unidad, Siglas)
-                       VALUES (?, ?, ?, ?, ?, ?, ?)""",
-                    (new_id, colegio, estado_med, codigo_mpps, area, unidad, siglas)
+                    """INSERT INTO Personal
+                       (Nombres, Apellidos, Cedula,
+                        FechaIngreso, NumeroFicha,
+                        FK_IdParroquiaR, Fk_IdTipoNomina, FK_IdCargo, FK_IdTurno,
+                        FK_IdEstatusActual, FK_IdTipoContrato, Fk_IdCentroCosto,
+                        Fk_Area, FechaRegistro, Fk_IdUsuario)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+                    (nombres, apellidos, cedula,
+                     fecha_obj, num_ficha,
+                     id_parroquia_dir, id_tipo_nomina, id_cargo, id_turno,
+                     id_estatus, id_contrato, id_centro_costo,
+                     id_area, datetime.now(), current_user.id)
                 )
                 conn.commit()
 
-            conn.close()
+                # Obtener el ID recién insertado
+                cursor.execute("SELECT @@IDENTITY")
+                new_id = cursor.fetchone()[0]
+
+                # Insertar dirección en tabla Direcciones
+                cursor.execute(
+                    """INSERT INTO Direcciones
+                       (Fk_IdPersonal, Fk_IdEstado, Fk_IdMunicipio, Fk_IdParroquia,
+                        Ciudad, Direccion, TelefonoFijo, TelefonoMovil)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                    (new_id, id_estado, id_municipio, id_parroquia_dir,
+                     ciudad, direccion, telefono_fijo, telefono_movil)
+                )
+                conn.commit()
+
+                # Si es Médico Veterinario (ID=4), insertar detalles médicos
+                if id_cargo == 4:
+                    colegio = request.form.get('colegio_medicos', '').strip()
+                    estado_med = request.form.get('estado_medico', '').strip()
+                    codigo_mpps = request.form.get('codigo_mpps', '').strip()
+                    area = request.form.get('area_produccion', '').strip()
+                    unidad = request.form.get('unidad_medico', '').strip()
+                    siglas = request.form.get('siglas_medico', '').strip()
+
+                    cursor.execute(
+                        """INSERT INTO DetallesMedicos
+                           (FK_IdPersonal, ColegioMedicos, Estado, CodigoMPPS,
+                            AreaProduccion, Unidad, Siglas)
+                           VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                        (new_id, colegio, estado_med, codigo_mpps, area, unidad, siglas)
+                    )
+                    conn.commit()
+            except Exception:
+                conn.rollback()
+                raise
+            finally:
+                cursor.close()
+                conn.close()
+                close_connection()
+
             flash('Personal registrado exitosamente.', 'success')
             return redirect(url_for('personal.index'))
         except Exception as e:
@@ -318,88 +325,95 @@ def editar(id):
         try:
             conn = get_connection()
             cursor = conn.cursor()
-            cursor.execute(
-                """UPDATE Personal SET
-                    Nombres=?, Apellidos=?, Cedula=?,
-                    FechaIngreso=?, NumeroFicha=?,
-                    FK_IdParroquiaR=?, Fk_IdTipoNomina=?, FK_IdCargo=?, FK_IdTurno=?,
-                    FK_IdEstatusActual=?, FK_IdTipoContrato=?, Fk_IdCentroCosto=?,
-                    Fk_Area=?
-                   WHERE IdPersonal=?""",
-                (nombres, apellidos, cedula,
-                 fecha_obj, num_ficha,
-                 id_parroquia_dir, id_tipo_nomina, id_cargo, id_turno,
-                 id_estatus, id_contrato, id_centro_costo,
-                 id_area,
-                 id)
-            )
-            conn.commit()
-
-            # Upsert Direcciones
-            cursor.execute(
-                "SELECT IdDireccion FROM Direcciones WHERE Fk_IdPersonal=?",
-                (id,)
-            )
-            existing_dir = cursor.fetchone()
-            if existing_dir:
+            try:
                 cursor.execute(
-                    """UPDATE Direcciones SET
-                        Fk_IdEstado=?, Fk_IdMunicipio=?, Fk_IdParroquia=?,
-                        Ciudad=?, Direccion=?, TelefonoFijo=?, TelefonoMovil=?
-                       WHERE Fk_IdPersonal=?""",
-                    (id_estado, id_municipio, id_parroquia_dir,
-                     ciudad, direccion, telefono_fijo, telefono_movil, id)
+                    """UPDATE Personal SET
+                        Nombres=?, Apellidos=?, Cedula=?,
+                        FechaIngreso=?, NumeroFicha=?,
+                        FK_IdParroquiaR=?, Fk_IdTipoNomina=?, FK_IdCargo=?, FK_IdTurno=?,
+                        FK_IdEstatusActual=?, FK_IdTipoContrato=?, Fk_IdCentroCosto=?,
+                        Fk_Area=?
+                       WHERE IdPersonal=?""",
+                    (nombres, apellidos, cedula,
+                     fecha_obj, num_ficha,
+                     id_parroquia_dir, id_tipo_nomina, id_cargo, id_turno,
+                     id_estatus, id_contrato, id_centro_costo,
+                     id_area,
+                     id)
                 )
-            else:
-                cursor.execute(
-                    """INSERT INTO Direcciones
-                       (Fk_IdPersonal, Fk_IdEstado, Fk_IdMunicipio, Fk_IdParroquia,
-                        Ciudad, Direccion, TelefonoFijo, TelefonoMovil)
-                       VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
-                    (id, id_estado, id_municipio, id_parroquia_dir,
-                     ciudad, direccion, telefono_fijo, telefono_movil)
-                )
-            conn.commit()
+                conn.commit()
 
-            # Manejar DetallesMedicos según el cargo
-            colegio = request.form.get('colegio_medicos', '').strip()
-            estado_med = request.form.get('estado_medico', '').strip()
-            codigo_mpps = request.form.get('codigo_mpps', '').strip()
-            area = request.form.get('area_produccion', '').strip()
-            unidad = request.form.get('unidad_medico', '').strip()
-            siglas = request.form.get('siglas_medico', '').strip()
-
-            if id_cargo == 4:
-                # Verificar si ya existe registro médico
+                # Upsert Direcciones
                 cursor.execute(
-                    "SELECT IdDetalleMedico FROM DetallesMedicos WHERE FK_IdPersonal=?",
+                    "SELECT IdDireccion FROM Direcciones WHERE Fk_IdPersonal=?",
                     (id,)
                 )
-                existing = cursor.fetchone()
-                if existing:
+                existing_dir = cursor.fetchone()
+                if existing_dir:
                     cursor.execute(
-                        """UPDATE DetallesMedicos SET
-                            ColegioMedicos=?, Estado=?, CodigoMPPS=?,
-                            AreaProduccion=?, Unidad=?, Siglas=?
-                           WHERE FK_IdPersonal=?""",
-                        (colegio, estado_med, codigo_mpps, area, unidad, siglas, id)
+                        """UPDATE Direcciones SET
+                            Fk_IdEstado=?, Fk_IdMunicipio=?, Fk_IdParroquia=?,
+                            Ciudad=?, Direccion=?, TelefonoFijo=?, TelefonoMovil=?
+                           WHERE Fk_IdPersonal=?""",
+                        (id_estado, id_municipio, id_parroquia_dir,
+                         ciudad, direccion, telefono_fijo, telefono_movil, id)
                     )
                 else:
                     cursor.execute(
-                        """INSERT INTO DetallesMedicos
-                           (FK_IdPersonal, ColegioMedicos, Estado, CodigoMPPS,
-                            AreaProduccion, Unidad, Siglas)
-                           VALUES (?, ?, ?, ?, ?, ?, ?)""",
-                        (id, colegio, estado_med, codigo_mpps, area, unidad, siglas)
+                        """INSERT INTO Direcciones
+                           (Fk_IdPersonal, Fk_IdEstado, Fk_IdMunicipio, Fk_IdParroquia,
+                            Ciudad, Direccion, TelefonoFijo, TelefonoMovil)
+                           VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                        (id, id_estado, id_municipio, id_parroquia_dir,
+                         ciudad, direccion, telefono_fijo, telefono_movil)
                     )
-            else:
-                # Si cambió a otro cargo, eliminar datos médicos
-                cursor.execute(
-                    "DELETE FROM DetallesMedicos WHERE FK_IdPersonal=?",
-                    (id,)
-                )
-            conn.commit()
-            conn.close()
+                conn.commit()
+
+                # Manejar DetallesMedicos según el cargo
+                colegio = request.form.get('colegio_medicos', '').strip()
+                estado_med = request.form.get('estado_medico', '').strip()
+                codigo_mpps = request.form.get('codigo_mpps', '').strip()
+                area = request.form.get('area_produccion', '').strip()
+                unidad = request.form.get('unidad_medico', '').strip()
+                siglas = request.form.get('siglas_medico', '').strip()
+
+                if id_cargo == 4:
+                    # Verificar si ya existe registro médico
+                    cursor.execute(
+                        "SELECT IdDetalleMedico FROM DetallesMedicos WHERE FK_IdPersonal=?",
+                        (id,)
+                    )
+                    existing = cursor.fetchone()
+                    if existing:
+                        cursor.execute(
+                            """UPDATE DetallesMedicos SET
+                                ColegioMedicos=?, Estado=?, CodigoMPPS=?,
+                                AreaProduccion=?, Unidad=?, Siglas=?
+                               WHERE FK_IdPersonal=?""",
+                            (colegio, estado_med, codigo_mpps, area, unidad, siglas, id)
+                        )
+                    else:
+                        cursor.execute(
+                            """INSERT INTO DetallesMedicos
+                               (FK_IdPersonal, ColegioMedicos, Estado, CodigoMPPS,
+                                AreaProduccion, Unidad, Siglas)
+                               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                            (id, colegio, estado_med, codigo_mpps, area, unidad, siglas)
+                        )
+                else:
+                    # Si cambió a otro cargo, eliminar datos médicos
+                    cursor.execute(
+                        "DELETE FROM DetallesMedicos WHERE FK_IdPersonal=?",
+                        (id,)
+                    )
+                conn.commit()
+            except Exception:
+                conn.rollback()
+                raise
+            finally:
+                cursor.close()
+                conn.close()
+                close_connection()
 
             flash('Personal actualizado exitosamente.', 'success')
             return redirect(url_for('personal.index'))

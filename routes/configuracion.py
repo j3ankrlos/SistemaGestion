@@ -5,7 +5,7 @@ import json
 import threading
 import datetime
 from utils.decorators import login_required
-from database.connection import get_connection
+from database.connection import get_connection, close_connection
 from config import Config
 
 config_bp = Blueprint('config', __name__)
@@ -232,7 +232,6 @@ def api_areas_listar():
                 ORDER BY a.Area
             """, (user_sitio,))
         rows = c.fetchall()
-        conn.close()
         areas = []
         for r in rows:
             areas.append({
@@ -244,6 +243,13 @@ def api_areas_listar():
         return {'success': True, 'data': areas}
     except Exception as e:
         return {'success': False, 'error': str(e)}, 500
+    finally:
+        try:
+            c.close()
+            conn.close()
+            close_connection()
+        except:
+            pass
 
 
 @config_bp.route('/api/sitios', methods=['GET'])
@@ -260,11 +266,17 @@ def api_sitios_listar():
         else:
             c.execute("SELECT IdSitio, Sitio FROM Sitios WHERE IdSitio = ? ORDER BY Sitio", (user_sitio,))
         rows = c.fetchall()
-        conn.close()
         sitios = [{'id': r[0], 'sitio': r[1]} for r in rows]
         return {'success': True, 'data': sitios}
     except Exception as e:
         return {'success': False, 'error': str(e)}, 500
+    finally:
+        try:
+            c.close()
+            conn.close()
+            close_connection()
+        except:
+            pass
 
 
 @config_bp.route('/api/areas/crear', methods=['POST'])
@@ -283,17 +295,26 @@ def api_areas_crear():
         c = conn.cursor()
         c.execute("SELECT COUNT(*) FROM Areas WHERE Area = ?", (nombre,))
         if c.fetchone()[0] > 0:
-            conn.close()
             return {'success': False, 'error': f'El área "{nombre}" ya existe'}
         c.execute(
             "INSERT INTO Areas (Area, Fk_IdSitio) VALUES (?, ?)",
             (nombre, fk_sitio_val)
         )
         conn.commit()
-        conn.close()
         return {'success': True, 'message': f'Área "{nombre}" creada correctamente'}
     except Exception as e:
+        try:
+            conn.rollback()
+        except:
+            pass
         return {'success': False, 'error': str(e)}, 500
+    finally:
+        try:
+            c.close()
+            conn.close()
+            close_connection()
+        except:
+            pass
 
 
 @config_bp.route('/api/areas/editar', methods=['POST'])
@@ -315,17 +336,26 @@ def api_areas_editar():
         c = conn.cursor()
         c.execute("SELECT COUNT(*) FROM Areas WHERE Area = ? AND IdArea <> ?", (nombre, int(area_id)))
         if c.fetchone()[0] > 0:
-            conn.close()
             return {'success': False, 'error': f'El área "{nombre}" ya existe'}
         c.execute(
             "UPDATE Areas SET Area = ?, Fk_IdSitio = ? WHERE IdArea = ?",
             (nombre, fk_sitio_val, int(area_id))
         )
         conn.commit()
-        conn.close()
         return {'success': True, 'message': 'Área actualizada correctamente'}
     except Exception as e:
+        try:
+            conn.rollback()
+        except:
+            pass
         return {'success': False, 'error': str(e)}, 500
+    finally:
+        try:
+            c.close()
+            conn.close()
+            close_connection()
+        except:
+            pass
 
 
 @config_bp.route('/api/areas/eliminar', methods=['POST'])
@@ -343,11 +373,20 @@ def api_areas_eliminar():
         # Verificar si hay personal asociado
         c.execute("SELECT COUNT(*) FROM Personal WHERE Fk_Area = ?", (int(area_id),))
         if c.fetchone()[0] > 0:
-            conn.close()
             return {'success': False, 'error': 'No se puede eliminar el área porque tiene personal asociado'}
         c.execute("DELETE FROM Areas WHERE IdArea = ?", (int(area_id),))
         conn.commit()
-        conn.close()
         return {'success': True, 'message': 'Área eliminada correctamente'}
     except Exception as e:
+        try:
+            conn.rollback()
+        except:
+            pass
         return {'success': False, 'error': str(e)}, 500
+    finally:
+        try:
+            c.close()
+            conn.close()
+            close_connection()
+        except:
+            pass

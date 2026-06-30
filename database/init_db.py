@@ -1,4 +1,4 @@
-from database.connection import get_connection  # Conexión a BD Access
+from database.connection import get_connection, close_connection  # Conexión a BD Access
 
 # ──────────────────────────────────────────────
 #  Creación de tablas del sistema RBAC
@@ -13,86 +13,89 @@ def create_tables():
     conn = get_connection()
     cursor = conn.cursor()
 
-    # ── Tabla Roles: almacena los nombres de los roles del sistema ──
     try:
-        cursor.execute('''
-            CREATE TABLE Roles (
-                IdRol AUTOINCREMENT PRIMARY KEY,  -- ID autonumérico
-                Rol VARCHAR(255)                   -- Nombre del rol (ej: Administrador)
-            )
-        ''')
-        print("Tabla Roles creada.")
-    except Exception as e:
-        print("La tabla Roles ya existe o hubo un error:", e)
+        # ── Tabla Roles: almacena los nombres de los roles del sistema ──
+        try:
+            cursor.execute('''
+                CREATE TABLE Roles (
+                    IdRol AUTOINCREMENT PRIMARY KEY,  -- ID autonumérico
+                    Rol VARCHAR(255)                   -- Nombre del rol (ej: Administrador)
+                )
+            ''')
+            print("Tabla Roles creada.")
+        except Exception as e:
+            print("La tabla Roles ya existe o hubo un error:", e)
 
-    # ── Tabla Permisos: catálogo de permisos (módulo + acción + slug único) ──
-    try:
-        cursor.execute('''
-            CREATE TABLE Permisos (
-                IdPermiso AUTOINCREMENT PRIMARY KEY,  -- ID autonumérico
-                Modulo VARCHAR(255),                   -- Módulo (ej: usuarios, roles)
-                Accion VARCHAR(255),                   -- Acción (ej: ver, crear)
-                Slug VARCHAR(255) UNIQUE               -- Identificador único (ej: usuarios.ver)
-            )
-        ''')
-        print("Tabla Permisos creada.")
-    except Exception as e:
-        print("La tabla Permisos ya existe o hubo un error:", e)
+        # ── Tabla Permisos: catálogo de permisos (módulo + acción + slug único) ──
+        try:
+            cursor.execute('''
+                CREATE TABLE Permisos (
+                    IdPermiso AUTOINCREMENT PRIMARY KEY,  -- ID autonumérico
+                    Modulo VARCHAR(255),                   -- Módulo (ej: usuarios, roles)
+                    Accion VARCHAR(255),                   -- Acción (ej: ver, crear)
+                    Slug VARCHAR(255) UNIQUE               -- Identificador único (ej: usuarios.ver)
+                )
+            ''')
+            print("Tabla Permisos creada.")
+        except Exception as e:
+            print("La tabla Permisos ya existe o hubo un error:", e)
 
-    # ── Tabla Usuarios: credenciales y vinculación con Personal ──
-    try:
-        cursor.execute('''
-            CREATE TABLE Usuarios (
-                IdUsuario AUTOINCREMENT PRIMARY KEY,  -- ID autonumérico
-                Usuario VARCHAR(255) UNIQUE,           -- Nombre de usuario (login)
-                Clave VARCHAR(255),                    -- Contraseña hasheada con bcrypt
-                NombreCorto VARCHAR(255),              -- Nombre para mostrar en la interfaz
-                Fk_IdPersonal INT,                     -- Relación con tabla Personal (opcional)
-                Fk_IdRol INT,                          -- Relación con tabla Roles
-                Fk_Sitio INT,                          -- Sitio al que pertenece
-                Fk_Status INT                          -- 1=Activo, 2=Inactivo
-            )
-        ''')
-        print("Tabla Usuarios creada.")
-    except Exception as e:
-        print("La tabla Usuarios ya existe o hubo un error:", e)
+        # ── Tabla Usuarios: credenciales y vinculación con Personal ──
+        try:
+            cursor.execute('''
+                CREATE TABLE Usuarios (
+                    IdUsuario AUTOINCREMENT PRIMARY KEY,  -- ID autonumérico
+                    Usuario VARCHAR(255) UNIQUE,           -- Nombre de usuario (login)
+                    Clave VARCHAR(255),                    -- Contraseña hasheada con bcrypt
+                    NombreCorto VARCHAR(255),              -- Nombre para mostrar en la interfaz
+                    Fk_IdPersonal INT,                     -- Relación con tabla Personal (opcional)
+                    Fk_IdRol INT,                          -- Relación con tabla Roles
+                    Fk_Sitio INT,                          -- Sitio al que pertenece
+                    Fk_Status INT                          -- 1=Activo, 2=Inactivo
+                )
+            ''')
+            print("Tabla Usuarios creada.")
+        except Exception as e:
+            print("La tabla Usuarios ya existe o hubo un error:", e)
 
-    # ── Tabla Permiso_Rol: matriz muchos-a-muchos entre roles y permisos ──
-    try:
-        cursor.execute('''
-            CREATE TABLE Permiso_Rol (
-                Fk_IdRol INT,      -- ID del rol
-                Fk_IdPermiso INT,  -- ID del permiso
-                PRIMARY KEY (Fk_IdRol, Fk_IdPermiso)  -- Clave compuesta (no duplicados)
-            )
-        ''')
-        print("Tabla Permiso_Rol creada.")
-    except Exception as e:
-        print("La tabla Permiso_Rol ya existe o hubo un error:", e)
+        # ── Tabla Permiso_Rol: matriz muchos-a-muchos entre roles y permisos ──
+        try:
+            cursor.execute('''
+                CREATE TABLE Permiso_Rol (
+                    Fk_IdRol INT,      -- ID del rol
+                    Fk_IdPermiso INT,  -- ID del permiso
+                    PRIMARY KEY (Fk_IdRol, Fk_IdPermiso)  -- Clave compuesta (no duplicados)
+                )
+            ''')
+            print("Tabla Permiso_Rol creada.")
+        except Exception as e:
+            print("La tabla Permiso_Rol ya existe o hubo un error:", e)
 
-    conn.commit()  # Confirma todos los cambios
+        conn.commit()  # Confirma todos los cambios
 
-    # ── Tabla HistorialIncidencias: registro de incidencias del personal ──
-    try:
-        cursor.execute('''
-            CREATE TABLE HistorialIncidencias (
-                IdHistorial AUTOINCREMENT PRIMARY KEY,
-                Fk_IdIncidencia INT,
-                Fk_IdPersonal INT,
-                Fk_IdUsuario INT,
-                FechaInicio DATETIME,
-                FechaFin DATETIME,
-                Observacion VARCHAR(255),
-                Fk_Status INT,
-                FechaRegistro DATETIME
-            )
-        ''')
-        print("Tabla HistorialIncidencias creada.")
-    except Exception as e:
-        print("La tabla HistorialIncidencias ya existe o hubo un error:", e)
+        # ── Tabla HistorialIncidencias: registro de incidencias del personal ──
+        try:
+            cursor.execute('''
+                CREATE TABLE HistorialIncidencias (
+                    IdHistorial AUTOINCREMENT PRIMARY KEY,
+                    Fk_IdIncidencia INT,
+                    Fk_IdPersonal INT,
+                    Fk_IdUsuario INT,
+                    FechaInicio DATETIME,
+                    FechaFin DATETIME,
+                    Observacion VARCHAR(255),
+                    Fk_Status INT,
+                    FechaRegistro DATETIME
+                )
+            ''')
+            print("Tabla HistorialIncidencias creada.")
+        except Exception as e:
+            print("La tabla HistorialIncidencias ya existe o hubo un error:", e)
 
-    conn.commit()
-    conn.close()
+    finally:
+        cursor.close()
+        conn.close()
+        close_connection()
 
 def init_default_data():
     """

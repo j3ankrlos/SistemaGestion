@@ -260,13 +260,14 @@ def _serve_avatar(id_personal):
     """Lógica interna para servir la foto desde la BD."""
     if not id_personal:
         return '', 404
-    from database.connection import get_connection
+    from database.connection import get_connection, close_connection
+    conn = None
+    cursor = None
     try:
         conn = get_connection()
         cursor = conn.cursor()
         cursor.execute("SELECT Fotografia FROM Personal WHERE IdPersonal = ?", (id_personal,))
         row = cursor.fetchone()
-        conn.close()
 
         if row and row[0] is not None:
             foto = row[0]
@@ -290,6 +291,15 @@ def _serve_avatar(id_personal):
                 return send_file(foto)
     except Exception as e:
         print(f"Error al servir avatar: {e}")
+    finally:
+        if conn:
+            try:
+                if cursor:
+                    cursor.close()
+                conn.close()
+                close_connection()
+            except Exception:
+                pass
 
     return '', 404
 

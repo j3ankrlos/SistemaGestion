@@ -237,90 +237,97 @@ def guardar_asistencias():
         if not usuario_id:
             return jsonify({'success': False, 'error': 'Sesión no válida.'})
 
-        from database.connection import get_connection
+        from database.connection import get_connection, close_connection
         conn = get_connection()
         cursor = conn.cursor()
 
-        for reg in registros:
-            id_personal = reg.get('id_personal')
-            estado = reg.get('estado', 'Asistente')
-            id_incidencia = reg.get('id_incidencia')
-            observacion = reg.get('observacion', '')
-            fecha_inicio_hi = reg.get('fecha_inicio', fecha)  # Para HistorialIncidencias
-            fecha_fin_hi = reg.get('fecha_fin', None)         # Opcional
-            hora_entrada = reg.get('hora_entrada')
-            hora_salida = reg.get('hora_salida')
+        try:
+            for reg in registros:
+                id_personal = reg.get('id_personal')
+                estado = reg.get('estado', 'Asistente')
+                id_incidencia = reg.get('id_incidencia')
+                observacion = reg.get('observacion', '')
+                fecha_inicio_hi = reg.get('fecha_inicio', fecha)  # Para HistorialIncidencias
+                fecha_fin_hi = reg.get('fecha_fin', None)         # Opcional
+                hora_entrada = reg.get('hora_entrada')
+                hora_salida = reg.get('hora_salida')
 
-            if not id_personal:
-                continue
+                if not id_personal:
+                    continue
 
-            # Convertir horas string a datetime.time para guardar en Access
-            hora_entrada_val = None
-            hora_salida_val = None
-            if hora_entrada:
-                try:
-                    partes = hora_entrada.split(':')
-                    hora_entrada_val = time(int(partes[0]), int(partes[1]))
-                except:
-                    pass
-            if hora_salida:
-                try:
-                    partes = hora_salida.split(':')
-                    hora_salida_val = time(int(partes[0]), int(partes[1]))
-                except:
-                    pass
+                # Convertir horas string a datetime.time para guardar en Access
+                hora_entrada_val = None
+                hora_salida_val = None
+                if hora_entrada:
+                    try:
+                        partes = hora_entrada.split(':')
+                        hora_entrada_val = time(int(partes[0]), int(partes[1]))
+                    except:
+                        pass
+                if hora_salida:
+                    try:
+                        partes = hora_salida.split(':')
+                        hora_salida_val = time(int(partes[0]), int(partes[1]))
+                    except:
+                        pass
 
-            # Verificar si ya existe registro para este personal+fecha
-            cursor.execute(
-                "SELECT IdAsistencia FROM Asistencias WHERE Fk_IdPersonal=? AND FechaAsistencia=?",
-                (id_personal, fecha)
-            )
-            existing = cursor.fetchone()
-
-            if existing:
-                # Actualizar
+                # Verificar si ya existe registro para este personal+fecha
                 cursor.execute(
-                    """UPDATE Asistencias SET
-                        Estado=?, Fk_IdIncidencia=?, Observacion=?,
-                        HoraEntrada=?, HoraSalida=?
-                       WHERE IdAsistencia=?""",
-                    (estado, id_incidencia, observacion,
-                     hora_entrada_val, hora_salida_val, existing[0])
+                    "SELECT IdAsistencia FROM Asistencias WHERE Fk_IdPersonal=? AND FechaAsistencia=?",
+                    (id_personal, fecha)
                 )
-            else:
-                # Insertar
-                cursor.execute(
-                    """INSERT INTO Asistencias
-                       (Fk_IdPersonal, FechaAsistencia, Estado, Fk_IdIncidencia,
-                        Observacion, FechaRegistro, Fk_IdUsuario,
-                        HoraEntrada, HoraSalida)
-                       VALUES (?, ?, ?, ?, ?, Now(), ?, ?, ?)""",
-                    (id_personal, fecha, estado, id_incidencia,
-                     observacion, usuario_id,
-                     hora_entrada_val, hora_salida_val)
-                )
+                existing = cursor.fetchone()
 
-            # ── Si es Incidencia, también registrar en HistorialIncidencias ──
-            if estado == 'Incidencia' and id_incidencia:
-                # Verificar si ya existe un registro similar
-                cursor.execute(
-                    """SELECT IdHistorial FROM HistorialIncidencias
-                       WHERE Fk_IdPersonal = ? AND Fk_IdIncidencia = ?
-                         AND FechaInicio = ? AND (FechaFin = ? OR (FechaFin IS NULL AND ? IS NULL))""",
-                    (id_personal, id_incidencia, fecha_inicio_hi, fecha_fin_hi, fecha_fin_hi)
-                )
-                if not cursor.fetchone():
+                if existing:
+                    # Actualizar
                     cursor.execute(
-                        """INSERT INTO HistorialIncidencias
-                           (Fk_IdIncidencia, Fk_IdPersonal, FechaInicio, FechaFin,
-                            Observacion, Fk_Status, Fk_IdUsuario, FechaRegistro)
-                           VALUES (?, ?, ?, ?, ?, 1, ?, Now())""",
-                        (id_incidencia, id_personal, fecha_inicio_hi, fecha_fin_hi,
-                         observacion, usuario_id)
+                        """UPDATE Asistencias SET
+                            Estado=?, Fk_IdIncidencia=?, Observacion=?,
+                            HoraEntrada=?, HoraSalida=?
+                           WHERE IdAsistencia=?""",
+                        (estado, id_incidencia, observacion,
+                         hora_entrada_val, hora_salida_val, existing[0])
+                    )
+                else:
+                    # Insertar
+                    cursor.execute(
+                        """INSERT INTO Asistencias
+                           (Fk_IdPersonal, FechaAsistencia, Estado, Fk_IdIncidencia,
+                            Observacion, FechaRegistro, Fk_IdUsuario,
+                            HoraEntrada, HoraSalida)
+                           VALUES (?, ?, ?, ?, ?, Now(), ?, ?, ?)""",
+                        (id_personal, fecha, estado, id_incidencia,
+                         observacion, usuario_id,
+                         hora_entrada_val, hora_salida_val)
                     )
 
-        conn.commit()
-        conn.close()
+                # ── Si es Incidencia, también registrar en HistorialIncidencias ──
+                if estado == 'Incidencia' and id_incidencia:
+                    # Verificar si ya existe un registro similar
+                    cursor.execute(
+                        """SELECT IdHistorial FROM HistorialIncidencias
+                           WHERE Fk_IdPersonal = ? AND Fk_IdIncidencia = ?
+                             AND FechaInicio = ? AND (FechaFin = ? OR (FechaFin IS NULL AND ? IS NULL))""",
+                        (id_personal, id_incidencia, fecha_inicio_hi, fecha_fin_hi, fecha_fin_hi)
+                    )
+                    if not cursor.fetchone():
+                        cursor.execute(
+                            """INSERT INTO HistorialIncidencias
+                               (Fk_IdIncidencia, Fk_IdPersonal, FechaInicio, FechaFin,
+                                Observacion, Fk_Status, Fk_IdUsuario, FechaRegistro)
+                               VALUES (?, ?, ?, ?, ?, 1, ?, Now())""",
+                            (id_incidencia, id_personal, fecha_inicio_hi, fecha_fin_hi,
+                             observacion, usuario_id)
+                        )
+
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            cursor.close()
+            conn.close()
+            close_connection()
 
         return jsonify({'success': True, 'message': f'Asistencias guardadas correctamente ({len(registros)} registros).'})
 
@@ -591,60 +598,67 @@ def api_actualizar_asistencia():
         id_personal = current[0]
         fecha_asistencia = current[1]
 
-        from database.connection import get_connection
+        from database.connection import get_connection, close_connection
         conn = get_connection()
         cursor = conn.cursor()
 
-        # Convertir horas string a datetime.time
-        hora_entrada_str = data.get('hora_entrada')
-        hora_salida_str = data.get('hora_salida')
-        hora_entrada_val = None
-        hora_salida_val = None
-        if hora_entrada_str:
-            try:
-                partes = hora_entrada_str.split(':')
-                hora_entrada_val = time(int(partes[0]), int(partes[1]))
-            except:
-                pass
-        if hora_salida_str:
-            try:
-                partes = hora_salida_str.split(':')
-                hora_salida_val = time(int(partes[0]), int(partes[1]))
-            except:
-                pass
+        try:
+            # Convertir horas string a datetime.time
+            hora_entrada_str = data.get('hora_entrada')
+            hora_salida_str = data.get('hora_salida')
+            hora_entrada_val = None
+            hora_salida_val = None
+            if hora_entrada_str:
+                try:
+                    partes = hora_entrada_str.split(':')
+                    hora_entrada_val = time(int(partes[0]), int(partes[1]))
+                except:
+                    pass
+            if hora_salida_str:
+                try:
+                    partes = hora_salida_str.split(':')
+                    hora_salida_val = time(int(partes[0]), int(partes[1]))
+                except:
+                    pass
 
-        # Actualizar la asistencia
-        cursor.execute(
-            """UPDATE Asistencias SET
-                Estado=?, Fk_IdIncidencia=?, Observacion=?,
-                HoraEntrada=?, HoraSalida=?
-               WHERE IdAsistencia=?""",
-            (estado, id_incidencia if estado == 'Incidencia' else None,
-             observacion,
-             hora_entrada_val, hora_salida_val,
-             id_asistencia)
-        )
-
-        # Si el estado cambió a Incidencia, registrar en HistorialIncidencias
-        if estado == 'Incidencia' and id_incidencia:
+            # Actualizar la asistencia
             cursor.execute(
-                """SELECT IdHistorial FROM HistorialIncidencias
-                   WHERE Fk_IdPersonal = ? AND Fk_IdIncidencia = ?
-                     AND FechaInicio = ? AND FechaFin IS NULL""",
-                (id_personal, id_incidencia, fecha_asistencia)
+                """UPDATE Asistencias SET
+                    Estado=?, Fk_IdIncidencia=?, Observacion=?,
+                    HoraEntrada=?, HoraSalida=?
+                   WHERE IdAsistencia=?""",
+                (estado, id_incidencia if estado == 'Incidencia' else None,
+                 observacion,
+                 hora_entrada_val, hora_salida_val,
+                 id_asistencia)
             )
-            if not cursor.fetchone():
-                cursor.execute(
-                    """INSERT INTO HistorialIncidencias
-                       (Fk_IdIncidencia, Fk_IdPersonal, FechaInicio, FechaFin,
-                        Observacion, Fk_Status, Fk_IdUsuario, FechaRegistro)
-                       VALUES (?, ?, ?, NULL, ?, 1, ?, Now())""",
-                    (id_incidencia, id_personal, fecha_asistencia,
-                     observacion, usuario_id)
-                )
 
-        conn.commit()
-        conn.close()
+            # Si el estado cambió a Incidencia, registrar en HistorialIncidencias
+            if estado == 'Incidencia' and id_incidencia:
+                cursor.execute(
+                    """SELECT IdHistorial FROM HistorialIncidencias
+                       WHERE Fk_IdPersonal = ? AND Fk_IdIncidencia = ?
+                         AND FechaInicio = ? AND FechaFin IS NULL""",
+                    (id_personal, id_incidencia, fecha_asistencia)
+                )
+                if not cursor.fetchone():
+                    cursor.execute(
+                        """INSERT INTO HistorialIncidencias
+                           (Fk_IdIncidencia, Fk_IdPersonal, FechaInicio, FechaFin,
+                            Observacion, Fk_Status, Fk_IdUsuario, FechaRegistro)
+                           VALUES (?, ?, ?, NULL, ?, 1, ?, Now())""",
+                        (id_incidencia, id_personal, fecha_asistencia,
+                         observacion, usuario_id)
+                    )
+
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            cursor.close()
+            conn.close()
+            close_connection()
 
         return jsonify({'success': True, 'message': 'Asistencia actualizada correctamente.'})
 

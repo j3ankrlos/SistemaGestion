@@ -83,16 +83,23 @@ def guardar():
                     insert_queries.append((id_rol, id_permiso))
 
         # Paso 3: Insertar las nuevas asignaciones una por una
-        from database.connection import get_connection
+        from database.connection import get_connection, close_connection
         conn = get_connection()
         cursor = conn.cursor()
-        for rol, perm in insert_queries:
-            cursor.execute(
-                "INSERT INTO Permiso_Rol (Fk_IdRol, Fk_IdPermiso) VALUES (?, ?)",
-                (rol, perm)
-            )
-        conn.commit()
-        conn.close()
+        try:
+            for rol, perm in insert_queries:
+                cursor.execute(
+                    "INSERT INTO Permiso_Rol (Fk_IdRol, Fk_IdPermiso) VALUES (?, ?)",
+                    (rol, perm)
+                )
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            cursor.close()
+            conn.close()
+            close_connection()
 
         flash('Matriz de permisos actualizada correctamente.', 'success')
     except Exception as e:
