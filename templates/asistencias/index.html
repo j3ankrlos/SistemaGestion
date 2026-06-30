@@ -54,18 +54,21 @@
         <table class="table table-hover" id="asistenciasTable">
             <thead>
                 <tr>
-                    <th style="width:50px;">#</th>
+                    <th style="width:40px;">#</th>
                     <th>Nombres</th>
                     <th>Apellidos</th>
-                    <th>Cédula</th>
-                    <th>Ficha</th>
-                    <th>Estado</th>
-                    <th style="width:220px;">Acción</th>
+                    <th style="width:110px;">Cédula</th>
+                    <th style="width:65px;">Ficha</th>
+                    <th style="width:105px;">Estado</th>
+                    <th style="width:105px;">Hora Entrada</th>
+                    <th style="width:105px;">Hora Salida</th>
+                    <th style="width:90px;">Hrs Extras</th>
+                    <th style="width:120px;">Acción</th>
                 </tr>
             </thead>
             <tbody id="tableBody">
                 <tr>
-                    <td colspan="7" class="table-loading">
+                    <td colspan="10" class="table-loading">
                         <i class="fa-solid fa-hand-point-up" style="font-size:2rem; opacity:0.3; display:block; margin-bottom:8px;"></i>
                         <p>Seleccione un área y fecha, luego presione "Cargar Personal"</p>
                     </td>
@@ -163,7 +166,7 @@
         state.fecha = fecha;
 
         var tbody = document.getElementById('tableBody');
-        tbody.innerHTML = '<tr><td colspan="7" class="table-loading"><div class="spinner"></div><p>Cargando personal...</p></td></tr>';
+        tbody.innerHTML = '<tr><td colspan="10" class="table-loading"><div class="spinner"></div><p>Cargando personal...</p></td></tr>';
 
         fetch('/asistencias/api/personal?area=' + area + '&fecha=' + fecha)
             .then(function(r) { return r.json(); })
@@ -181,11 +184,11 @@
                     }
                 } else {
                     showToast('error', resp.error);
-                    tbody.innerHTML = '<tr><td colspan="7" class="table-empty"><p>Error al cargar datos</p></td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="10" class="table-empty"><p>Error al cargar datos</p></td></tr>';
                 }
             })
             .catch(function(err) {
-                tbody.innerHTML = '<tr><td colspan="7" class="table-empty"><p>Error de conexión</p></td></tr>';
+                tbody.innerHTML = '<tr><td colspan="10" class="table-empty"><p>Error de conexión</p></td></tr>';
                 showToast('error', 'Error al cargar personal.');
             });
     }
@@ -204,7 +207,7 @@
         total.innerHTML = totalHtml;
 
         if (!data || data.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="7" class="table-empty"><i class="fa-solid fa-users-slash"></i><p>No hay personal activo en esta área</p></td></tr>';
+            tbody.innerHTML = '<tr><td colspan="10" class="table-empty"><i class="fa-solid fa-users-slash"></i><p>No hay personal activo en esta área</p></td></tr>';
             return;
         }
 
@@ -236,6 +239,10 @@
                 ? '<span class="procesado-row-icon" title="Asistencia procesada"><i class="fa-solid fa-check-circle"></i></span> '
                 : '';
 
+            var horaEntradaHtml = '<input type="time" class="form-control hora-input" style="font-size:0.85rem;height:32px;padding:2px 6px;" value="' + p.hora_entrada + '" data-id="' + p.id + '" data-tipo="entrada"' + (yaProcesado ? ' disabled' : '') + '>';
+            var horaSalidaHtml = '<input type="time" class="form-control hora-input hora-salida" style="font-size:0.85rem;height:32px;padding:2px 6px;" value="' + p.hora_salida + '" data-id="' + p.id + '" data-tipo="salida" data-salida-turno="' + p.h_salida_turno + '" data-id-turno="' + (p.id_turno || '') + '"' + (yaProcesado ? ' disabled' : '') + '>';
+            var hrsExtrasHtml = '<span class="hrs-extras" id="hrs-extras-' + p.id + '" style="font-size:0.85rem;color:var(--text-muted);">—</span>';
+
             html += '<tr data-id="' + p.id + '" data-estado="' + p.estado + '">' +
                 '<td><strong>' + (idx + 1) + '</strong></td>' +
                 '<td>' + procesadoIcon + escapeHtml(p.nombres) + '</td>' +
@@ -245,6 +252,9 @@
                 '<td><span class="badge ' + estadoClass + '" id="estado-' + p.id + '">' +
                     estadoIcon + ' ' + estadoBadge +
                 '</span></td>' +
+                '<td>' + horaEntradaHtml + '</td>' +
+                '<td>' + horaSalidaHtml + '</td>' +
+                '<td class="hrs-extras-cell" id="hrs-cell-' + p.id + '">' + hrsExtrasHtml + '</td>' +
                 '<td>' +
                     '<div class="action-btns" style="gap:4px;">' +
                         '<button class="btn btn-sm ' + btnAsistente + '" onclick="window.__setEstado(' + p.id + ', \'Asistente\')" title="Marcar como Asistente">' +
@@ -261,6 +271,27 @@
                 '</tr>';
         });
         tbody.innerHTML = html;
+
+        // ─── Eventos: cambio de hora → calcular horas extras ───
+        document.querySelectorAll('.hora-salida').forEach(function(input) {
+            input.addEventListener('change', function() {
+                var id = parseInt(this.dataset.id);
+                var horaSalida = this.value;
+                var idTurno = this.dataset.idTurno;
+                var p = state.personal.find(function(item) { return item.id === id; });
+                if (p) {
+                    p.hora_salida = horaSalida;
+                }
+                window.__calcularHorasExtras(id, horaSalida, idTurno);
+            });
+        });
+
+        // ─── Calcular horas extras para todos al cargar ───
+        state.personal.forEach(function(p) {
+            if (p.hora_salida && p.id_turno) {
+                window.__calcularHorasExtras(p.id, p.hora_salida, p.id_turno);
+            }
+        });
     }
 
     // ─── Cambiar estado de un empleado ───
@@ -278,6 +309,52 @@
         }
 
         actualizarFila(id);
+    };
+
+    // ─── Calcular horas extras dinámicamente ───
+    window.__calcularHorasExtras = function(id, horaSalida, idTurno) {
+        var cell = document.getElementById('hrs-extras-' + id);
+        if (!cell) return;
+
+        if (!horaSalida || !idTurno) {
+            cell.innerHTML = '—';
+            cell.style.color = 'var(--text-muted)';
+            return;
+        }
+
+        cell.innerHTML = '<span class="spinner-sm"></span>';
+        cell.style.color = 'var(--text-muted)';
+
+        fetch('/asistencias/api/calcular-horas-extras', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                hora_salida_real: horaSalida,
+                id_turno: idTurno
+            })
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(resp) {
+            if (resp.total_horas > 0) {
+                var partes = [];
+                if (resp.diurnas > 0) {
+                    partes.push('<span style="color:#f59e0b;">' + resp.diurnas + 'h D</span>');
+                }
+                if (resp.nocturnas > 0) {
+                    partes.push('<span style="color:#6366f1;">' + resp.nocturnas + 'h N</span>');
+                }
+                cell.innerHTML = partes.join(' + ') || '—';
+                cell.style.color = 'var(--text-secondary)';
+                cell.style.fontWeight = '600';
+            } else {
+                cell.innerHTML = '<span style="color:#22c55e;">—</span>';
+                cell.style.color = 'var(--text-muted)';
+            }
+        })
+        .catch(function() {
+            cell.innerHTML = '—';
+            cell.style.color = 'var(--text-muted)';
+        });
     };
 
     function actualizarFila(id) {
@@ -395,6 +472,9 @@
         }
 
         var registros = state.personal.map(function(p) {
+            // Obtener valores actuales de los inputs de hora
+            var inputEntrada = document.querySelector('.hora-input[data-id="' + p.id + '"][data-tipo="entrada"]');
+            var inputSalida = document.querySelector('.hora-input[data-id="' + p.id + '"][data-tipo="salida"]');
             return {
                 id_personal: p.id,
                 estado: p.estado,
@@ -402,6 +482,8 @@
                 observacion: p.observacion || '',
                 fecha_inicio: p.fecha_inicio_hi || state.fecha,
                 fecha_fin: p.fecha_fin_hi || null,
+                hora_entrada: inputEntrada ? inputEntrada.value : (p.hora_entrada || ''),
+                hora_salida: inputSalida ? inputSalida.value : (p.hora_salida || ''),
             };
         });
 

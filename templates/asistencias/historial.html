@@ -50,6 +50,8 @@
                     <th>Cédula</th>
                     <th>Área</th>
                     <th>Estado</th>
+                    <th>H.Entrada</th>
+                    <th>H.Salida</th>
                     <th>Incidencia</th>
                     <th>Observación</th>
                     <th>Registrado por</th>
@@ -57,7 +59,7 @@
                 </tr>
             </thead>
             <tbody id="histBody">
-                <tr><td colspan="8" class="table-loading"><p>Seleccione filtros y presione "Filtrar"</p></td></tr>
+                <tr><td colspan="11" class="table-loading"><p>Seleccione filtros y presione "Filtrar"</p></td></tr>
             </tbody>
         </table>
     </div>
@@ -87,6 +89,16 @@
                     <option value="Incidencia">Incidencia</option>
                 </select>
             </div>
+            <div class="form-row" style="display:flex; gap:12px;">
+                <div class="form-group" style="flex:1;">
+                    <label for="editHoraEntrada">Hora Entrada</label>
+                    <input type="time" id="editHoraEntrada" class="form-control">
+                </div>
+                <div class="form-group" style="flex:1;">
+                    <label for="editHoraSalida">Hora Salida</label>
+                    <input type="time" id="editHoraSalida" class="form-control">
+                </div>
+            </div>
             <div class="form-group" id="editIncidenciaGroup" style="display:none;">
                 <label for="editIncidencia">Tipo de Incidencia</label>
                 <select id="editIncidencia" class="form-control">
@@ -110,47 +122,6 @@
     </div>
 </div>
 {% endblock %}
-<div class="modal-overlay" id="modalEditarAsistencia" style="display:none;">
-    <div class="modal-content modal-sm">
-        <div class="modal-header">
-            <h3><i class="fa-solid fa-pen-to-square"></i> Editar Asistencia</h3>
-            <button class="modal-close" id="modalEditarClose">&times;</button>
-        </div>
-        <div class="modal-body">
-            <p style="margin-bottom:12px; color:var(--text-secondary);">
-                <strong id="modalEditarPersonal"></strong>
-                <span id="modalEditarFecha" style="margin-left:12px; color:var(--text-muted);"></span>
-            </p>
-            <div class="form-group">
-                <label for="editEstado">Estado</label>
-                <select id="editEstado" class="form-control">
-                    <option value="Asistente">Asistente</option>
-                    <option value="Dia Libre">Día Libre</option>
-                    <option value="Incidencia">Incidencia</option>
-                </select>
-            </div>
-            <div class="form-group" id="editIncidenciaGroup" style="display:none;">
-                <label for="editIncidencia">Tipo de Incidencia</label>
-                <select id="editIncidencia" class="form-control">
-                    <option value="">Seleccione...</option>
-                    {% for t in tipos_incidencias %}
-                    <option value="{{ t[0] }}">{{ t[1] }} ({{ t[2] }})</option>
-                    {% endfor %}
-                </select>
-            </div>
-            <div class="form-group">
-                <label for="editObservacion">Observación</label>
-                <textarea id="editObservacion" class="form-control" rows="2" placeholder="Observación opcional..."></textarea>
-            </div>
-        </div>
-        <div class="modal-footer">
-            <button id="btnEditarCancelar" class="btn btn-secondary">Cancelar</button>
-            <button id="btnEditarGuardar" class="btn btn-primary">
-                <i class="fa-solid fa-floppy-disk"></i> Guardar Cambios
-            </button>
-        </div>
-    </div>
-</div>
 
 {% block scripts %}
 <script>
@@ -183,7 +154,7 @@
         if (hasta) params += '&hasta=' + hasta;
 
         var tbody = document.getElementById('histBody');
-        tbody.innerHTML = '<tr><td colspan="9" class="table-loading"><div class="spinner"></div><p>Cargando historial...</p></td></tr>';
+        tbody.innerHTML = '<tr><td colspan="11" class="table-loading"><div class="spinner"></div><p>Cargando historial...</p></td></tr>';
 
         fetch('/asistencias/api/historial' + params)
             .then(function(r) { return r.json(); })
@@ -191,11 +162,11 @@
                 if (resp.success) {
                     renderHistorial(resp);
                 } else {
-                    tbody.innerHTML = '<tr><td colspan="9" class="table-empty"><p>Error al cargar historial</p></td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="11" class="table-empty"><p>Error al cargar historial</p></td></tr>';
                 }
             })
             .catch(function() {
-                tbody.innerHTML = '<tr><td colspan="9" class="table-empty"><p>Error de conexión</p></td></tr>';
+                tbody.innerHTML = '<tr><td colspan="11" class="table-empty"><p>Error de conexión</p></td></tr>';
             });
     }
 
@@ -206,7 +177,7 @@
         histState.totalPages = resp.total_pages;
 
         if (data.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="9" class="table-empty"><i class="fa-solid fa-calendar-xmark"></i><p>No se encontraron registros</p></td></tr>';
+            tbody.innerHTML = '<tr><td colspan="11" class="table-empty"><i class="fa-solid fa-calendar-xmark"></i><p>No se encontraron registros</p></td></tr>';
             document.getElementById('histPagination').style.display = 'none';
             return;
         }
@@ -234,6 +205,8 @@
                 '<td>' + escapeHtml(r.cedula) + '</td>' +
                 '<td>' + escapeHtml(r.area) + '</td>' +
                 '<td><span class="badge ' + estadoClass + '">' + estadoIcon + ' ' + estadoText + '</span></td>' +
+                '<td>' + (r.hora_entrada || '') + '</td>' +
+                '<td>' + (r.hora_salida || '') + '</td>' +
                 '<td>' + escapeHtml(r.incidencia) + '</td>' +
                 '<td>' + escapeHtml(r.observacion) + '</td>' +
                 '<td>' + escapeHtml(r.registrado_por) + '</td>' +
@@ -303,6 +276,8 @@
                 document.getElementById('modalEditarFecha').textContent =
                     '(' + record.fecha + ')';
                 document.getElementById('editEstado').value = record.estado;
+                document.getElementById('editHoraEntrada').value = record.hora_entrada || '';
+                document.getElementById('editHoraSalida').value = record.hora_salida || '';
                 document.getElementById('editIncidencia').value = record.id_incidencia || '';
                 document.getElementById('editObservacion').value = record.observacion || '';
                 document.getElementById('editIncidenciaGroup').style.display =
@@ -335,6 +310,8 @@
         var estado = document.getElementById('editEstado').value;
         var idIncidencia = document.getElementById('editIncidencia').value;
         var observacion = document.getElementById('editObservacion').value;
+        var horaEntrada = document.getElementById('editHoraEntrada').value;
+        var horaSalida = document.getElementById('editHoraSalida').value;
 
         if (estado === 'Incidencia' && !idIncidencia) {
             showToast('warning', 'Seleccione un tipo de incidencia.');
@@ -352,7 +329,9 @@
                 id_asistencia: editRecord.id,
                 estado: estado,
                 id_incidencia: estado === 'Incidencia' ? parseInt(idIncidencia) : null,
-                observacion: observacion
+                observacion: observacion,
+                hora_entrada: horaEntrada || null,
+                hora_salida: horaSalida || null
             })
         })
         .then(function(r) { return r.json(); })

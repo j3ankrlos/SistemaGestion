@@ -2,7 +2,7 @@ from flask import Blueprint, render_template, request, jsonify, session
 from flask_login import current_user
 from database.connection import execute_query, get_connection
 from utils.decorators import login_required, permission_required
-from datetime import datetime
+from datetime import datetime, timedelta, time
 
 asistencias_bp = Blueprint('asistencias', __name__)
 
@@ -81,8 +81,9 @@ def api_personal_por_area():
 
     personal = execute_query(
         """SELECT p.IdPersonal, p.Nombres, p.Apellidos, p.Cedula,
-                  p.NumeroFicha
-           FROM Personal p
+                  p.NumeroFicha, t.H_Entrada, t.H_Salida, t.IdTurno
+           FROM (Personal p
+           LEFT JOIN Turnos t ON p.FK_IdTurno = t.IdTurno)
            INNER JOIN EstatusActual ea ON p.FK_IdEstatusActual = ea.IdEstatusA
            WHERE p.Fk_Area = ?
              AND ea.EstatusA = 'ACTIVO'
@@ -96,7 +97,8 @@ def api_personal_por_area():
     asistencias_dict = {}
     if personal:
         rows = execute_query(
-            """SELECT Fk_IdPersonal, Estado, Fk_IdIncidencia, Observacion
+            """SELECT Fk_IdPersonal, Estado, Fk_IdIncidencia, Observacion,
+                      HoraEntrada, HoraSalida
                FROM Asistencias
                WHERE FechaAsistencia = ? AND Fk_IdPersonal IN ({})""".format(
                 ','.join('?' for _ in personal)
@@ -109,6 +111,8 @@ def api_personal_por_area():
                 'estado': r[1] or 'Asistente',
                 'id_incidencia': r[2],
                 'observacion': r[3] or '',
+                'hora_entrada': r[4].strftime('%H:%M') if r[4] else None,
+                'hora_salida': r[5].strftime('%H:%M') if r[5] else None,
             }
 
     # ── Auto-detectar incidencias activas desde HistorialIncidencias ──
@@ -146,12 +150,19 @@ def api_personal_por_area():
         pid = p[0]
         asist = asistencias_dict.get(pid, {})
 
+        # Horas del turno (valores por defecto)
+        h_entrada_turno = p[5].strftime('%H:%M') if p[5] else ''
+        h_salida_turno = p[6].strftime('%H:%M') if p[6] else ''
+        id_turno = p[7]
+
         if pid in asistencias_dict:
             # Ya tiene asistencia registrada → respetar ese dato
             estado = asist.get('estado', 'Asistente')
             id_inc = asist.get('id_incidencia')
             obs = asist.get('observacion', '')
             sigla_inc = ''
+            hora_entrada = asist.get('hora_entrada') or h_entrada_turno
+            hora_salida = asist.get('hora_salida') or h_salida_turno
         elif pid in incidencias_activas:
             # Incidencia activa detectada → auto-asignar
             ia = incidencias_activas[pid]
@@ -159,11 +170,15 @@ def api_personal_por_area():
             id_inc = ia['id_incidencia']
             obs = ia['observacion']
             sigla_inc = ia['sigla_incidencia']
+            hora_entrada = h_entrada_turno
+            hora_salida = h_salida_turno
         else:
             estado = 'Asistente'
             id_inc = None
             obs = ''
             sigla_inc = ''
+            hora_entrada = h_entrada_turno
+            hora_salida = h_salida_turno
 
         data.append({
             'id': pid,
@@ -176,6 +191,11 @@ def api_personal_por_area():
             'observacion': obs,
             'sigla_incidencia': sigla_inc,
             'procesado': pid in asistencias_dict,
+            'hora_entrada': hora_entrada,
+            'hora_salida': hora_salida,
+            'h_entrada_turno': h_entrada_turno,
+            'h_salida_turno': h_salida_turno,
+            'id_turno': id_turno,
         })
 
     ya_procesado = len(asistencias_dict) == len(personal) and len(personal) > 0
@@ -228,9 +248,27 @@ def guardar_asistencias():
             observacion = reg.get('observacion', '')
             fecha_inicio_hi = reg.get('fecha_inicio', fecha)  # Para HistorialIncidencias
             fecha_fin_hi = reg.get('fecha_fin', None)         # Opcional
+            hora_entrada = reg.get('hora_entrada')
+            hora_salida = reg.get('hora_salida')
 
             if not id_personal:
                 continue
+
+            # Convertir horas string a datetime.time para guardar en Access
+            hora_entrada_val = None
+            hora_salida_val = None
+            if hora_entrada:
+                try:
+                    partes = hora_entrada.split(':')
+                    hora_entrada_val = time(int(partes[0]), int(partes[1]))
+                except:
+                    pass
+            if hora_salida:
+                try:
+                    partes = hora_salida.split(':')
+                    hora_salida_val = time(int(partes[0]), int(partes[1]))
+                except:
+                    pass
 
             # Verificar si ya existe registro para este personal+fecha
             cursor.execute(
@@ -243,17 +281,23 @@ def guardar_asistencias():
                 # Actualizar
                 cursor.execute(
                     """UPDATE Asistencias SET
-                        Estado=?, Fk_IdIncidencia=?, Observacion=?
+                        Estado=?, Fk_IdIncidencia=?, Observacion=?,
+                        HoraEntrada=?, HoraSalida=?
                        WHERE IdAsistencia=?""",
-                    (estado, id_incidencia, observacion, existing[0])
+                    (estado, id_incidencia, observacion,
+                     hora_entrada_val, hora_salida_val, existing[0])
                 )
             else:
                 # Insertar
                 cursor.execute(
                     """INSERT INTO Asistencias
-                       (Fk_IdPersonal, FechaAsistencia, Estado, Fk_IdIncidencia, Observacion, FechaRegistro, Fk_IdUsuario)
-                       VALUES (?, ?, ?, ?, ?, Now(), ?)""",
-                    (id_personal, fecha, estado, id_incidencia, observacion, usuario_id)
+                       (Fk_IdPersonal, FechaAsistencia, Estado, Fk_IdIncidencia,
+                        Observacion, FechaRegistro, Fk_IdUsuario,
+                        HoraEntrada, HoraSalida)
+                       VALUES (?, ?, ?, ?, ?, Now(), ?, ?, ?)""",
+                    (id_personal, fecha, estado, id_incidencia,
+                     observacion, usuario_id,
+                     hora_entrada_val, hora_salida_val)
                 )
 
             # ── Si es Incidencia, también registrar en HistorialIncidencias ──
@@ -285,7 +329,121 @@ def guardar_asistencias():
 
 
 # ──────────────────────────────────────────────
-#  API: Historial de asistencias
+#  Función: Calcular horas extras
+# ──────────────────────────────────────────────
+def _time_to_min(t):
+    """Convierte un time a minutos del día (0-1439)."""
+    return t.hour * 60 + t.minute
+
+def _calcular_horas_extras(hora_salida_real, h_salida_turno):
+    """
+    Calcula horas extras comparando la hora real de salida vs la programada.
+    Retorna dict con total_horas, diurnas, nocturnas según rangos de HorasExtras.
+    """
+    if not hora_salida_real or not h_salida_turno:
+        return {'total_horas': 0, 'diurnas': 0, 'nocturnas': 0, 'texto': ''}
+
+    # Obtener rangos de horas extras desde la BD
+    rangos = execute_query("SELECT HorasE, Desde, Hasta FROM HorasExtras", fetchall=True) or []
+
+    real_min = _time_to_min(hora_salida_real)
+    turno_min = _time_to_min(h_salida_turno)
+
+    # Si real <= turno, no hay horas extras
+    if real_min <= turno_min:
+        return {'total_horas': 0, 'diurnas': 0, 'nocturnas': 0, 'texto': ''}
+
+    # Total de minutos extras
+    total_min = real_min - turno_min
+
+    # Distribuir minutos extras según rangos
+    diurnas_min = 0
+    nocturnas_min = 0
+
+    for r in rangos:
+        tipo = r[0]
+        r_desde = r[1]
+        r_hasta = r[2]
+        r_desde_min = _time_to_min(r_desde)
+        r_hasta_min = _time_to_min(r_hasta)
+
+        es_nocturno = 'NOCTURN' in tipo.upper()
+        es_diurno = 'DIURN' in tipo.upper()
+
+        for m in range(1, total_min + 1):
+            min_actual = (turno_min + m) % 1440  # wrappear a 24h
+            if _en_rango(min_actual, r_desde_min, r_hasta_min):
+                if es_nocturno:
+                    nocturnas_min += 1
+                elif es_diurno:
+                    diurnas_min += 1
+
+    # Redondear a 1 decimal (convertir a horas)
+    diurnas = round(diurnas_min / 60, 1)
+    nocturnas = round(nocturnas_min / 60, 1)
+    total = round(diurnas + nocturnas, 1)
+
+    # Texto descriptivo
+    partes = []
+    if diurnas > 0:
+        partes.append(f"{diurnas} D")
+    if nocturnas > 0:
+        partes.append(f"{nocturnas} N")
+    texto = ' + '.join(partes) if partes else ''
+
+    return {
+        'total_horas': total,
+        'diurnas': diurnas,
+        'nocturnas': nocturnas,
+        'texto': texto,
+    }
+
+def _en_rango(minuto, inicio, fin):
+    """Verifica si un minuto cae dentro de un rango (maneja wraparound)."""
+    if inicio <= fin:
+        return inicio <= minuto <= fin
+    else:
+        # Rango que cruza la medianoche (ej: 19:00-04:59)
+        return minuto >= inicio or minuto <= fin
+
+
+# ──────────────────────────────────────────────
+#  API: Calcular horas extras dinámicamente
+# ──────────────────────────────────────────────
+@asistencias_bp.route('/api/calcular-horas-extras', methods=['POST'])
+@login_required
+def api_calcular_horas_extras():
+    """
+    Recibe la hora de salida real y el id del turno,
+    devuelve el cálculo de horas extras.
+    """
+    try:
+        data = request.get_json()
+        hora_real_str = data.get('hora_salida_real', '').strip()
+        id_turno = data.get('id_turno')
+
+        if not hora_real_str or not id_turno:
+            return jsonify({'total_horas': 0, 'diurnas': 0, 'nocturnas': 0, 'texto': ''})
+
+        # Obtener hora de salida del turno
+        turno = execute_query(
+            "SELECT H_Salida FROM Turnos WHERE IdTurno = ?",
+            (id_turno,), fetchone=True
+        )
+        if not turno or not turno[0]:
+            return jsonify({'total_horas': 0, 'diurnas': 0, 'nocturnas': 0, 'texto': ''})
+
+        h_salida_turno = turno[0]
+
+        # Convertir hora real string a time
+        partes = hora_real_str.split(':')
+        hora_real = time(int(partes[0]), int(partes[1]))
+
+        resultado = _calcular_horas_extras(hora_real, h_salida_turno)
+        return jsonify(resultado)
+
+    except Exception as e:
+        return jsonify({'total_horas': 0, 'diurnas': 0, 'nocturnas': 0, 'texto': str(e)})
 # ──────────────────────────────────────────────
 @asistencias_bp.route('/api/historial')
 @login_required
@@ -338,7 +496,7 @@ def api_historial():
                    a.FechaAsistencia, a.Estado,
                    i.Incidencia, i.SiglaIncidencia,
                    a.Observacion, a.FechaRegistro, u.Usuario,
-                   ar.Area
+                   ar.Area, a.HoraEntrada, a.HoraSalida
             FROM ((((Asistencias a
             INNER JOIN Personal p ON a.Fk_IdPersonal = p.IdPersonal)
             LEFT JOIN Incidencias i ON a.Fk_IdIncidencia = i.IdIncidencia)
@@ -357,6 +515,8 @@ def api_historial():
     data = []
     for r in page_rows:
         fecha = r[5]
+        hora_entrada = r[13].strftime('%H:%M') if r[13] else ''
+        hora_salida = r[14].strftime('%H:%M') if r[14] else ''
         data.append({
             'id': r[0],
             'id_personal': r[1],
@@ -372,6 +532,8 @@ def api_historial():
             'fecha_registro': r[10].strftime('%d/%m/%Y %H:%M') if r[10] else '',
             'registrado_por': r[11] or '',
             'area': r[12] or '',
+            'hora_entrada': hora_entrada,
+            'hora_salida': hora_salida,
         })
 
     return jsonify({
@@ -397,7 +559,9 @@ def api_actualizar_asistencia():
         "id_asistencia": 123,
         "estado": "Asistente" | "Dia Libre" | "Incidencia",
         "id_incidencia": null o int,
-        "observacion": "..."
+        "observacion": "...",
+        "hora_entrada": "07:30",
+        "hora_salida": "16:00"
     }
     """
     try:
@@ -431,13 +595,34 @@ def api_actualizar_asistencia():
         conn = get_connection()
         cursor = conn.cursor()
 
+        # Convertir horas string a datetime.time
+        hora_entrada_str = data.get('hora_entrada')
+        hora_salida_str = data.get('hora_salida')
+        hora_entrada_val = None
+        hora_salida_val = None
+        if hora_entrada_str:
+            try:
+                partes = hora_entrada_str.split(':')
+                hora_entrada_val = time(int(partes[0]), int(partes[1]))
+            except:
+                pass
+        if hora_salida_str:
+            try:
+                partes = hora_salida_str.split(':')
+                hora_salida_val = time(int(partes[0]), int(partes[1]))
+            except:
+                pass
+
         # Actualizar la asistencia
         cursor.execute(
             """UPDATE Asistencias SET
-                Estado=?, Fk_IdIncidencia=?, Observacion=?
+                Estado=?, Fk_IdIncidencia=?, Observacion=?,
+                HoraEntrada=?, HoraSalida=?
                WHERE IdAsistencia=?""",
             (estado, id_incidencia if estado == 'Incidencia' else None,
-             observacion, id_asistencia)
+             observacion,
+             hora_entrada_val, hora_salida_val,
+             id_asistencia)
         )
 
         # Si el estado cambió a Incidencia, registrar en HistorialIncidencias

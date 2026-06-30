@@ -26,3 +26,7 @@ Thumbs.db
 # ---- Archivos temporales de pruebas ----
 vbs_test*.log
 _explorar_tablas.py
+_explorar_turnos.py
+_consultar.py
+_migrar_asistencias.py
+.actual_port

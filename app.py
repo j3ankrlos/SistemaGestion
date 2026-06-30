@@ -419,21 +419,55 @@ def liberar_puerto(port):
         pass
 
 
+# ──────────────────────────────────────────────
+#  Encontrar puerto disponible automáticamente
+# ──────────────────────────────────────────────
+def find_available_port(start_port, max_tries=10):
+    """Prueba puertos desde start_port y devuelve el primero libre."""
+    import socket
+    for p in range(start_port, start_port + max_tries):
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+                s.bind(('0.0.0.0', p))
+                return p
+        except OSError:
+            continue
+    return None
+
+
 # ═══════════════════════════════════════════════
 #  Punto de entrada principal
 # ═══════════════════════════════════════════════
 if __name__ == '__main__':
     from waitress import serve  # Servidor WSGI production-ready
+    import sys as _sys
 
-    PORT = int(os.environ.get('PORCINO_PORT', '5000'))  # Puerto configurable
+    PORT_BASE = int(os.environ.get('PORCINO_PORT', '5000'))  # Puerto base configurable
 
-    # Intentar liberar el puerto antes de iniciar (por si quedó ocupado)
-    liberar_puerto(PORT)
+    # Liberar los primeros 3 candidatos antes de elegir
+    for candidate in range(PORT_BASE, PORT_BASE + 3):
+        liberar_puerto(candidate)
+
+    # Encontrar el primer puerto disponible
+    PORT = find_available_port(PORT_BASE, 10)
+    if PORT is None:
+        print(f"ERROR: No se encontró puerto disponible desde {PORT_BASE}")
+        _sys.exit(1)
+
+    # Guardar el puerto real para que los launchers lo lean
+    actual_port_file = os.path.join(os.path.dirname(__file__), '.actual_port')
+    try:
+        with open(actual_port_file, 'w') as f:
+            f.write(str(PORT))
+    except Exception:
+        pass  # Si falla, no es crítico
 
     print("============================================")
     print("|     SISTEMA DE GESTIÓN                     |")
     print("============================================")
     print(f"|  Servidor: http://localhost:{PORT:<13} |")
+    if PORT != PORT_BASE:
+        print(f"|  ⚠ Puerto {PORT_BASE} ocupado, usando {PORT:<5}         |")
     print("|  Para APAGAR: Cierra esta ventana        |")
     print("|  o pulsa Ctrl+C                          |")
     print("============================================")

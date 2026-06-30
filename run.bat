@@ -106,11 +106,13 @@ if not exist "venv" (
 
 :run_server
 
-:: ── 5) Liberar puerto 5000 (matar procesos zombies) ──
-echo [3/3] Verificando puerto 5000...
-for /f "tokens=5" %%a in ('netstat -ano ^| findstr :5000 ^| findstr LISTENING') do (
-    echo         Liberando puerto 5000 ^(PID %%a^)...
-    taskkill /F /PID %%a >nul 2>&1
+:: ── 5) Liberar puertos (matar procesos zombies) ──
+echo [3/3] Verificando puertos disponibles...
+for %%p in (5000 5001 5002) do (
+    for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":%%p" ^| findstr LISTENING') do (
+        echo         Liberando puerto %%p ^(PID %%a^)...
+        taskkill /F /PID %%a >nul 2>&1
+    )
 )
 timeout /t 1 /nobreak >nul
 
@@ -130,7 +132,7 @@ echo ========================================
 echo   SISTEMA DE GESTIÓN
 echo ========================================
 echo.
-echo Servidor: http://localhost:5000
+echo Puertos: 5000, 5001, 5002 (elige el primero libre)
 echo Para salir: Cierra esta ventana o pulsa Ctrl+C
 echo.
 %PYTHON_CMD% app.py

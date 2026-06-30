@@ -15,7 +15,7 @@ strSep = "\"
 ' ──────────────────────────────────────────────
 '  CONFIGURACIÓN
 ' ──────────────────────────────────────────────
-strPort    = "5000"
+strPort    = "5001"
 strPython  = strBase & "\venv\Scripts\python.exe"
 strSetupPy = strBase & "\setup_portable.py"
 strNoVenv  = strBase & "\.no_venv"       ' Marcador: modo sin venv activo
@@ -114,7 +114,7 @@ End If
 ' Si no, strPython ya apunta a venv\Scripts\python.exe
 
 ' ═══════════════════════════════════════════════
-'  5) LIBERAR PUERTO: mata procesos zombies en :5000
+'  5) LIBERAR PUERTO: mata procesos zombies en el puerto
 ' ═══════════════════════════════════════════════
 strKillCmd = "cmd /c netstat -ano | findstr :" & strPort & " > ""%TEMP%\gestion_port.txt"" & for /f ""tokens=5"" %a in ('findstr LISTENING ""%TEMP%\gestion_port.txt""') do taskkill /F /PID %a 2>nul"
 WshShell.Run strKillCmd, 0, True
@@ -127,10 +127,23 @@ strCmd = """" & strPython & """ """ & strBase & "\app.py"""
 WshShell.Run strCmd, 0, False
 
 ' ═══════════════════════════════════════════════
-'  7) ESPERAR Y ABRIR NAVEGADOR
+'  7) ESPERAR Y ABRIR NAVEGADOR EN EL PUERTO REAL
 ' ═══════════════════════════════════════════════
-WScript.Sleep 4000
-WshShell.Run "http://127.0.0.1:" & strPort & "/", 1, False
+WScript.Sleep 5000
+
+' Leer el puerto real desde el archivo que escribe app.py
+Dim strPortFile, strActualPort
+strPortFile = strBase & "\.actual_port"
+If fso.FileExists(strPortFile) Then
+    Dim ts
+    Set ts = fso.OpenTextFile(strPortFile, 1)
+    strActualPort = ts.ReadLine
+    ts.Close
+Else
+    strActualPort = strPort ' fallback al configurado
+End If
+
+WshShell.Run "http://127.0.0.1:" & strActualPort & "/", 1, False
 
 Set fso = Nothing
 Set WshShell = Nothing

@@ -94,7 +94,7 @@ Si el sistema dice que no encuentra la base de datos:
 ## Estructura final del proyecto
 
 ```
-SistemaPorcino\
+SistemaGestion\
 ├── database\
 │   └── DBSistema.accdb        ← tu base de datos (copiada aquí)
 ├── wheels\                     ← paquetes pip offline
