@@ -492,6 +492,7 @@ def api_historial():
     id_area = request.args.get('area', type=int)
     fecha_desde = request.args.get('desde', '').strip()
     fecha_hasta = request.args.get('hasta', '').strip()
+    search = request.args.get('search', '').strip()
     page = request.args.get('page', 1, type=int)
     per_page = 20
 
@@ -509,6 +510,11 @@ def api_historial():
     if fecha_hasta:
         where.append("a.FechaAsistencia <= ?")
         params.append(fecha_hasta)
+
+    if search:
+        where.append("(p.Nombres LIKE ? OR p.Apellidos LIKE ? OR p.Cedula LIKE ?)")
+        like_val = f"%{search}%"
+        params.extend([like_val, like_val, like_val])
 
     # Filtro por sitio si no es SuperAdmin
     is_admin = current_user.rol_id == 1

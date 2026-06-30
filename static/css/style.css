@@ -126,6 +126,7 @@ body {
 /* Main Content */
 .main-content {
     flex: 1;
+    min-width: 0;
     display: flex;
     flex-direction: column;
 }
@@ -673,7 +674,47 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
 }
 
 .table-responsive {
-    overflow-x: auto;
+    overflow-x: scroll;
+    overflow-y: hidden;
+    max-width: 100%;
+    scrollbar-width: auto;
+    scrollbar-color: var(--accent) var(--bg-tertiary);
+}
+
+/* Scrollbar personalizada para webkit (Chrome, Edge, Opera, Brave) */
+.table-responsive::-webkit-scrollbar {
+    width: auto;
+    height: 14px;
+    background: var(--bg-tertiary);
+    border-radius: 8px;
+}
+
+.table-responsive::-webkit-scrollbar-track {
+    background: var(--bg-tertiary);
+    border-radius: 8px;
+    border: 1px solid var(--border);
+}
+
+/* ── THUMB: siempre visible, color sólido, fácil de agarrar ── */
+.table-responsive::-webkit-scrollbar-thumb {
+    background: var(--accent);
+    border-radius: 8px;
+    border: 2px solid var(--bg-tertiary);
+    min-width: 60px;
+    box-shadow: inset 0 1px 4px rgba(0,0,0,0.4);
+}
+
+.table-responsive::-webkit-scrollbar-thumb:hover {
+    background: var(--accent-hover);
+}
+
+.table-responsive::-webkit-scrollbar-thumb:active {
+    background: #e8a05a;
+}
+
+/* Esquina donde se unen scrollbars */
+.table-responsive::-webkit-scrollbar-corner {
+    background: var(--bg-tertiary);
 }
 
 table {

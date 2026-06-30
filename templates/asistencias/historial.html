@@ -12,22 +12,29 @@
 
 <!-- Filtros -->
 <div class="filters-bar">
-    <div class="filter-group" style="flex:1; min-width:150px;">
-        <label for="histArea" class="filter-label">Área de Trabajo</label>
+    <div class="filter-group search-bar" style="flex:1; min-width:200px;">
+        <label for="histSearch" class="filter-label">
+            <i class="fa-solid fa-search"></i> Buscar personal
+        </label>
+        <input type="text" id="histSearch" class="form-control"
+               placeholder="Nombre, apellido o cédula..." autocomplete="off">
+    </div>
+    <div class="filter-group" style="min-width:150px;">
+        <label for="histArea" class="filter-label">Área</label>
         <select id="histArea" class="form-control">
-            <option value="">Todas las áreas</option>
+            <option value="">Todas</option>
             {% for a in areas %}
             <option value="{{ a[0] }}">{{ a[1] }}</option>
             {% endfor %}
         </select>
     </div>
-    <div class="filter-group" style="max-width:180px;">
+    <div class="filter-group" style="max-width:170px;">
         <label for="histDesde" class="filter-label">Desde</label>
-        <input type="date" id="histDesde" class="form-control" placeholder="Desde">
+        <input type="date" id="histDesde" class="form-control">
     </div>
-    <div class="filter-group" style="max-width:180px;">
+    <div class="filter-group" style="max-width:170px;">
         <label for="histHasta" class="filter-label">Hasta</label>
-        <input type="date" id="histHasta" class="form-control" placeholder="Hasta">
+        <input type="date" id="histHasta" class="form-control">
     </div>
     <div class="filter-group" style="align-self:flex-end;">
         <button id="btnFiltrarHist" class="btn btn-primary btn-icon">
@@ -42,7 +49,7 @@
         <h3><i class="fa-solid fa-list"></i> Registros de Asistencia</h3>
     </div>
     <div class="table-responsive">
-        <table class="table table-hover" id="historialTable">
+        <table class="table table-hover" id="historialTable" style="min-width:1200px;">
             <thead>
                 <tr>
                     <th>Fecha</th>
@@ -159,11 +166,13 @@
     }
 
     function cargarHistorial() {
+        var search = document.getElementById('histSearch').value.trim();
         var area = document.getElementById('histArea').value;
         var desde = document.getElementById('histDesde').value;
         var hasta = document.getElementById('histHasta').value;
 
         var params = '?page=' + histState.page;
+        if (search) params += '&search=' + encodeURIComponent(search);
         if (area) params += '&area=' + area;
         if (desde) params += '&desde=' + desde;
         if (hasta) params += '&hasta=' + hasta;
@@ -269,9 +278,11 @@
         // Buscar el registro en los datos ya cargados
         var data = [];
         var params = '?page=1&per_page=9999';
+        var search = document.getElementById('histSearch').value.trim();
         var area = document.getElementById('histArea').value;
         var desde = document.getElementById('histDesde').value;
         var hasta = document.getElementById('histHasta').value;
+        if (search) params += '&search=' + encodeURIComponent(search);
         if (area) params += '&area=' + area;
         if (desde) params += '&desde=' + desde;
         if (hasta) params += '&hasta=' + hasta;
@@ -372,6 +383,15 @@
     document.getElementById('btnFiltrarHist').addEventListener('click', function() {
         histState.page = 1;
         cargarHistorial();
+    });
+
+    // Búsqueda inteligente: Enter dispara la búsqueda
+    document.getElementById('histSearch').addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            histState.page = 1;
+            cargarHistorial();
+        }
     });
 
     // Auto-cargar al inicio
