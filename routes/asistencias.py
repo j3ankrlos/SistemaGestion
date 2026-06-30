@@ -98,7 +98,8 @@ def api_personal_por_area():
     if personal:
         rows = execute_query(
             """SELECT Fk_IdPersonal, Estado, Fk_IdIncidencia, Observacion,
-                      HoraEntrada, HoraSalida
+                      HoraEntrada, HoraSalida,
+                      Diurnas, Nocturnas, TotalHorasExtras
                FROM Asistencias
                WHERE FechaAsistencia = ? AND Fk_IdPersonal IN ({})""".format(
                 ','.join('?' for _ in personal)
@@ -113,6 +114,9 @@ def api_personal_por_area():
                 'observacion': r[3] or '',
                 'hora_entrada': r[4].strftime('%H:%M') if r[4] else None,
                 'hora_salida': r[5].strftime('%H:%M') if r[5] else None,
+                'diurnas': float(r[6]) if r[6] is not None else None,
+                'nocturnas': float(r[7]) if r[7] is not None else None,
+                'total_horas_extras': float(r[8]) if r[8] is not None else None,
             }
 
     # ── Auto-detectar incidencias activas desde HistorialIncidencias ──
@@ -196,6 +200,9 @@ def api_personal_por_area():
             'h_entrada_turno': h_entrada_turno,
             'h_salida_turno': h_salida_turno,
             'id_turno': id_turno,
+            'diurnas': asist.get('diurnas') if isinstance(asist, dict) else None,
+            'nocturnas': asist.get('nocturnas') if isinstance(asist, dict) else None,
+            'total_horas_extras': asist.get('total_horas_extras') if isinstance(asist, dict) else None,
         })
 
     ya_procesado = len(asistencias_dict) == len(personal) and len(personal) > 0
@@ -271,6 +278,27 @@ def guardar_asistencias():
                     except:
                         pass
 
+                # ── Calcular horas extras ──
+                diurnas_val = 0
+                nocturnas_val = 0
+                total_he_val = 0
+                if hora_salida_val:
+                    try:
+                        cursor.execute(
+                            """SELECT t.H_Salida FROM Turnos t
+                               INNER JOIN Personal p ON p.FK_IdTurno = t.IdTurno
+                               WHERE p.IdPersonal = ?""",
+                            (id_personal,)
+                        )
+                        turno_row = cursor.fetchone()
+                        if turno_row and turno_row[0]:
+                            he = _calcular_horas_extras(hora_salida_val, turno_row[0])
+                            diurnas_val = he['diurnas']
+                            nocturnas_val = he['nocturnas']
+                            total_he_val = he['total_horas']
+                    except:
+                        pass
+
                 # Verificar si ya existe registro para este personal+fecha
                 cursor.execute(
                     "SELECT IdAsistencia FROM Asistencias WHERE Fk_IdPersonal=? AND FechaAsistencia=?",
@@ -283,10 +311,12 @@ def guardar_asistencias():
                     cursor.execute(
                         """UPDATE Asistencias SET
                             Estado=?, Fk_IdIncidencia=?, Observacion=?,
-                            HoraEntrada=?, HoraSalida=?
+                            HoraEntrada=?, HoraSalida=?,
+                            Diurnas=?, Nocturnas=?, TotalHorasExtras=?
                            WHERE IdAsistencia=?""",
                         (estado, id_incidencia, observacion,
-                         hora_entrada_val, hora_salida_val, existing[0])
+                         hora_entrada_val, hora_salida_val,
+                         diurnas_val, nocturnas_val, total_he_val, existing[0])
                     )
                 else:
                     # Insertar
@@ -294,11 +324,13 @@ def guardar_asistencias():
                         """INSERT INTO Asistencias
                            (Fk_IdPersonal, FechaAsistencia, Estado, Fk_IdIncidencia,
                             Observacion, FechaRegistro, Fk_IdUsuario,
-                            HoraEntrada, HoraSalida)
-                           VALUES (?, ?, ?, ?, ?, Now(), ?, ?, ?)""",
+                            HoraEntrada, HoraSalida,
+                            Diurnas, Nocturnas, TotalHorasExtras)
+                           VALUES (?, ?, ?, ?, ?, Now(), ?, ?, ?, ?, ?, ?)""",
                         (id_personal, fecha, estado, id_incidencia,
                          observacion, usuario_id,
-                         hora_entrada_val, hora_salida_val)
+                         hora_entrada_val, hora_salida_val,
+                         diurnas_val, nocturnas_val, total_he_val)
                     )
 
                 # ── Si es Incidencia, también registrar en HistorialIncidencias ──
@@ -503,7 +535,8 @@ def api_historial():
                    a.FechaAsistencia, a.Estado,
                    i.Incidencia, i.SiglaIncidencia,
                    a.Observacion, a.FechaRegistro, u.Usuario,
-                   ar.Area, a.HoraEntrada, a.HoraSalida
+                   ar.Area, a.HoraEntrada, a.HoraSalida,
+                   a.Diurnas, a.Nocturnas, a.TotalHorasExtras
             FROM ((((Asistencias a
             INNER JOIN Personal p ON a.Fk_IdPersonal = p.IdPersonal)
             LEFT JOIN Incidencias i ON a.Fk_IdIncidencia = i.IdIncidencia)
@@ -541,6 +574,9 @@ def api_historial():
             'area': r[12] or '',
             'hora_entrada': hora_entrada,
             'hora_salida': hora_salida,
+            'diurnas': float(r[15]) if r[15] is not None else None,
+            'nocturnas': float(r[16]) if r[16] is not None else None,
+            'total_horas_extras': float(r[17]) if r[17] is not None else None,
         })
 
     return jsonify({
@@ -621,15 +657,38 @@ def api_actualizar_asistencia():
                 except:
                     pass
 
+            # ── Calcular horas extras ──
+            diurnas_val = 0
+            nocturnas_val = 0
+            total_he_val = 0
+            if hora_salida_val:
+                try:
+                    cursor.execute(
+                        """SELECT t.H_Salida FROM Turnos t
+                           INNER JOIN Personal p ON p.FK_IdTurno = t.IdTurno
+                           WHERE p.IdPersonal = ?""",
+                        (id_personal,)
+                    )
+                    turno_row = cursor.fetchone()
+                    if turno_row and turno_row[0]:
+                        he = _calcular_horas_extras(hora_salida_val, turno_row[0])
+                        diurnas_val = he['diurnas']
+                        nocturnas_val = he['nocturnas']
+                        total_he_val = he['total_horas']
+                except:
+                    pass
+
             # Actualizar la asistencia
             cursor.execute(
                 """UPDATE Asistencias SET
                     Estado=?, Fk_IdIncidencia=?, Observacion=?,
-                    HoraEntrada=?, HoraSalida=?
+                    HoraEntrada=?, HoraSalida=?,
+                    Diurnas=?, Nocturnas=?, TotalHorasExtras=?
                    WHERE IdAsistencia=?""",
                 (estado, id_incidencia if estado == 'Incidencia' else None,
                  observacion,
                  hora_entrada_val, hora_salida_val,
+                 diurnas_val, nocturnas_val, total_he_val,
                  id_asistencia)
             )
 

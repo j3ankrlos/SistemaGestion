@@ -92,6 +92,23 @@ def create_tables():
         except Exception as e:
             print("La tabla HistorialIncidencias ya existe o hubo un error:", e)
 
+        # ── Agregar columnas de horas extras a Asistencias (si no existen) ──
+        try:
+            cursor.execute("ALTER TABLE Asistencias ADD COLUMN Diurnas DOUBLE")
+            print("Columna Diurnas agregada a Asistencias.")
+        except Exception as e:
+            print("Columna Diurnas ya existe o no se pudo agregar:", e)
+        try:
+            cursor.execute("ALTER TABLE Asistencias ADD COLUMN Nocturnas DOUBLE")
+            print("Columna Nocturnas agregada a Asistencias.")
+        except Exception as e:
+            print("Columna Nocturnas ya existe o no se pudo agregar:", e)
+        try:
+            cursor.execute("ALTER TABLE Asistencias ADD COLUMN TotalHorasExtras DOUBLE")
+            print("Columna TotalHorasExtras agregada a Asistencias.")
+        except Exception as e:
+            print("Columna TotalHorasExtras ya existe o no se pudo agregar:", e)
+
     finally:
         cursor.close()
         conn.close()

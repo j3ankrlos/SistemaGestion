@@ -52,6 +52,7 @@
                     <th>Estado</th>
                     <th>H.Entrada</th>
                     <th>H.Salida</th>
+                    <th>Hrs Extras</th>
                     <th>Incidencia</th>
                     <th>Observación</th>
                     <th>Registrado por</th>
@@ -59,7 +60,7 @@
                 </tr>
             </thead>
             <tbody id="histBody">
-                <tr><td colspan="11" class="table-loading"><p>Seleccione filtros y presione "Filtrar"</p></td></tr>
+                <tr><td colspan="12" class="table-loading"><p>Seleccione filtros y presione "Filtrar"</p></td></tr>
             </tbody>
         </table>
     </div>
@@ -143,6 +144,20 @@
         return d.innerHTML;
     }
 
+    function formatoHE(r) {
+        if (r.total_horas_extras && r.total_horas_extras > 0) {
+            var partes = [];
+            if (r.diurnas > 0) {
+                partes.push('<span style="color:#f59e0b;">' + r.diurnas + 'h D</span>');
+            }
+            if (r.nocturnas > 0) {
+                partes.push('<span style="color:#6366f1;">' + r.nocturnas + 'h N</span>');
+            }
+            return partes.join(' + ') || '—';
+        }
+        return '—';
+    }
+
     function cargarHistorial() {
         var area = document.getElementById('histArea').value;
         var desde = document.getElementById('histDesde').value;
@@ -154,7 +169,7 @@
         if (hasta) params += '&hasta=' + hasta;
 
         var tbody = document.getElementById('histBody');
-        tbody.innerHTML = '<tr><td colspan="11" class="table-loading"><div class="spinner"></div><p>Cargando historial...</p></td></tr>';
+        tbody.innerHTML = '<tr><td colspan="12" class="table-loading"><div class="spinner"></div><p>Cargando historial...</p></td></tr>';
 
         fetch('/asistencias/api/historial' + params)
             .then(function(r) { return r.json(); })
@@ -162,11 +177,11 @@
                 if (resp.success) {
                     renderHistorial(resp);
                 } else {
-                    tbody.innerHTML = '<tr><td colspan="11" class="table-empty"><p>Error al cargar historial</p></td></tr>';
+                    tbody.innerHTML = '<tr><td colspan="12" class="table-empty"><p>Error al cargar historial</p></td></tr>';
                 }
             })
             .catch(function() {
-                tbody.innerHTML = '<tr><td colspan="11" class="table-empty"><p>Error de conexión</p></td></tr>';
+                tbody.innerHTML = '<tr><td colspan="12" class="table-empty"><p>Error de conexión</p></td></tr>';
             });
     }
 
@@ -177,7 +192,7 @@
         histState.totalPages = resp.total_pages;
 
         if (data.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="11" class="table-empty"><i class="fa-solid fa-calendar-xmark"></i><p>No se encontraron registros</p></td></tr>';
+            tbody.innerHTML = '<tr><td colspan="12" class="table-empty"><i class="fa-solid fa-calendar-xmark"></i><p>No se encontraron registros</p></td></tr>';
             document.getElementById('histPagination').style.display = 'none';
             return;
         }
@@ -207,6 +222,7 @@
                 '<td><span class="badge ' + estadoClass + '">' + estadoIcon + ' ' + estadoText + '</span></td>' +
                 '<td>' + (r.hora_entrada || '') + '</td>' +
                 '<td>' + (r.hora_salida || '') + '</td>' +
+                '<td style="font-size:0.85rem;font-weight:600;">' + formatoHE(r) + '</td>' +
                 '<td>' + escapeHtml(r.incidencia) + '</td>' +
                 '<td>' + escapeHtml(r.observacion) + '</td>' +
                 '<td>' + escapeHtml(r.registrado_por) + '</td>' +
